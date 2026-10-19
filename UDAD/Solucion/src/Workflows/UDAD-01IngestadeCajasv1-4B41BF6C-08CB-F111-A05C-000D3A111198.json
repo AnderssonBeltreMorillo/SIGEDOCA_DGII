@@ -1,0 +1,1050 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_2bf0c"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_278ab"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      },
+      "shared_teams": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_2b3e3"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "f7e84771-90f9-4c22-878c-11d6fcf04031"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnNewItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Obtener_datos_adjuntos": {
+          "runAfter": {
+            "Actualizar_elemento": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "f7e84771-90f9-4c22-878c-11d6fcf04031",
+              "itemId": "@triggerBody()?['ID']"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItemAttachments"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Condición": {
+          "actions": {
+            "Aplicar_a_cada_uno": {
+              "foreach": "@body('Obtener_datos_adjuntos')",
+              "actions": {
+                "Condición_1_(es_un_excel)": {
+                  "actions": {
+                    "Obtener_contenido_de_datos_adjuntos": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "f7e84771-90f9-4c22-878c-11d6fcf04031",
+                          "itemId": "@triggerBody()?['ID']",
+                          "attachmentId": "@items('Aplicar_a_cada_uno')?['Id']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "GetAttachmentContent"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Crear_archivo_temporal": {
+                      "runAfter": {
+                        "Obtener_contenido_de_datos_adjuntos": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "folderPath": "/Listados de Unidad de Digitalizacin y Almacenamiento de Datos/TempBoxes",
+                          "name": "@concat(\r\n    string(triggerBody()?['ID']),\r\n    '_',\r\n    items('Aplicar_a_cada_uno')?['DisplayName']\r\n)",
+                          "body": "@body('Obtener_contenido_de_datos_adjuntos')"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "CreateFile"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      },
+                      "runtimeConfiguration": {
+                        "contentTransfer": {
+                          "transferMode": "Chunked"
+                        }
+                      }
+                    },
+                    "Retraso_-_Esperar_disponibilidad_del_Excel": {
+                      "runAfter": {
+                        "Crear_archivo_temporal": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Wait",
+                      "inputs": {
+                        "interval": {
+                          "count": 5,
+                          "unit": "Second"
+                        }
+                      }
+                    },
+                    "Obtener_tablas_del_manifiesto": {
+                      "runAfter": {
+                        "Retraso_-_Esperar_disponibilidad_del_Excel": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                          "file": "@outputs('Crear_archivo_temporal')?['body/Id']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "GetTables"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Condición_2_(TablaCaja_existe)": {
+                      "actions": {
+                        "Enumerar_las_filas_de_una_tabla": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                              "file": "@outputs('Crear_archivo_temporal')?['body/Id']",
+                              "table": "@first(body('Buscar_TablaCaja'))?['id']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "GetItems"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          },
+                          "runtimeConfiguration": {
+                            "paginationPolicy": {
+                              "minimumItemCount": 5000
+                            }
+                          }
+                        },
+                        "Filas_ocupadas": {
+                          "runAfter": {
+                            "Enumerar_las_filas_de_una_tabla": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "Query",
+                          "inputs": {
+                            "from": "@outputs('Enumerar_las_filas_de_una_tabla')?['body/value']",
+                            "where": "@not(equals(trim(string(coalesce(item()?['No_Documento'], ''))),''))"
+                          }
+                        },
+                        "Condición_3_(existen_filas_con_datos)": {
+                          "actions": {
+                            "Filas_incompletas": {
+                              "type": "Query",
+                              "inputs": {
+                                "from": "@body('Filas_ocupadas')",
+                                "where": "@equals(or(\r\n    equals(trim(string(item()?['Orden'])), ''),\r\n    or(\r\n        equals(trim(string(item()?['Razon_Social'])), ''),\r\n        or(\r\n            equals(trim(string(item()?['RNC'])), ''),\r\n            equals(trim(string(item()?['No_Documento'])), '')\r\n        )\r\n    )\r\n),true)"
+                              }
+                            },
+                            "Condición_4_(Filas_válidas)": {
+                              "actions": {
+                                "Aplicar_a_cada_uno_Crear_documentos_en_Preparación": {
+                                  "foreach": "@body('Filas_ocupadas')",
+                                  "actions": {
+                                    "Crear_elemento_documento_en_Preparación": {
+                                      "type": "OpenApiConnection",
+                                      "inputs": {
+                                        "parameters": {
+                                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                          "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                                          "item/Title": "@item()?['No_Documento']",
+                                          "item/No_Caja": "@triggerBody()?['Title']",
+                                          "item/Orden": "@item()?['Orden']",
+                                          "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia/Value']",
+                                          "item/Tipo_Documento": "@triggerBody()?['Tipo_Documento/Value']",
+                                          "item/Razon_Social": "@item()?['Razon_Social']",
+                                          "item/RNC": "@item()?['RNC']",
+                                          "item/Prioridad/Value": "Normal",
+                                          "item/Estado/Value": "Pendiente"
+                                        },
+                                        "host": {
+                                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                          "connectionName": "shared_sharepointonline",
+                                          "operationId": "PostItem"
+                                        },
+                                        "authentication": "@parameters('$authentication')"
+                                      }
+                                    }
+                                  },
+                                  "type": "Foreach"
+                                },
+                                "Actualizar_elemento_(Aprobado)": {
+                                  "runAfter": {
+                                    "Aplicar_a_cada_uno_Crear_documentos_en_Preparación": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "type": "OpenApiConnection",
+                                  "inputs": {
+                                    "parameters": {
+                                      "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                      "table": "f7e84771-90f9-4c22-878c-11d6fcf04031",
+                                      "id": "@triggerBody()?['ID']",
+                                      "item/Title": "@triggerBody()?['Title']",
+                                      "item/Responsable_Notificacion": "@body('Preparar_responsables_de_notificación')",
+                                      "item/Caja_Comunicada": false,
+                                      "item/Estado_Validacion/Value": "Aprobado"
+                                    },
+                                    "host": {
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                      "connectionName": "shared_sharepointonline",
+                                      "operationId": "PatchItem"
+                                    },
+                                    "authentication": "@parameters('$authentication')"
+                                  }
+                                },
+                                "Eliminar_archivo_5": {
+                                  "runAfter": {
+                                    "Retraso_-_Esperar_liberación_del_archivo_temporal": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "type": "OpenApiConnection",
+                                  "inputs": {
+                                    "parameters": {
+                                      "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                      "id": "@decodeUriComponent(\r\n    outputs('Crear_archivo_temporal')?['body/Id']\r\n)"
+                                    },
+                                    "host": {
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                      "connectionName": "shared_sharepointonline",
+                                      "operationId": "DeleteFile"
+                                    },
+                                    "authentication": "@parameters('$authentication')"
+                                  }
+                                },
+                                "Publicar_mensaje_en_un_chat_o_canal_5": {
+                                  "runAfter": {
+                                    "Actualizar_elemento_(Aprobado)": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "type": "OpenApiConnection",
+                                  "inputs": {
+                                    "parameters": {
+                                      "poster": "User",
+                                      "location": "Channel",
+                                      "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                      "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                      "body/messageBody": "<p class=\"editor-paragraph\">La recepción de la caja @{triggerBody()?['Title']} fue completada correctamente.<br><br>Cantidad de documentos agregados a la lista de preparación: @{length(body('Filas_ocupadas'))}<br><br>Área de procedencia: @{triggerBody()?['Area_Procedencia/Value']}<br>Tipo de documento: @{triggerBody()?['Tipo_Documento/Value']}<br>Estado de validación: Aprobado</p>"
+                                    },
+                                    "host": {
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                      "connectionName": "shared_teams",
+                                      "operationId": "PostMessageToConversation"
+                                    },
+                                    "authentication": "@parameters('$authentication')"
+                                  }
+                                },
+                                "Retraso_-_Esperar_liberación_del_archivo_temporal": {
+                                  "runAfter": {
+                                    "Publicar_mensaje_en_un_chat_o_canal_5": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "type": "Wait",
+                                  "inputs": {
+                                    "interval": {
+                                      "count": 6,
+                                      "unit": "Minute"
+                                    }
+                                  }
+                                },
+                                "Registrar_caja_recibida_en_Excel": {
+                                  "runAfter": {
+                                    "Actualizar_elemento_(Aprobado)": [
+                                      "Succeeded"
+                                    ]
+                                  },
+                                  "metadata": {
+                                    "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                                    "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                                  },
+                                  "type": "OpenApiConnection",
+                                  "inputs": {
+                                    "parameters": {
+                                      "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                                      "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                                      "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                                      "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                                      "item/Evento_ID": "@concat(\r\n    'CAJA-REC|',\r\n    string(triggerBody()?['ID'])\r\n)",
+                                      "item/Fecha_Evento": "@convertTimeZone(\r\n    utcNow(),\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                                      "item/Fecha_Recepcion": "@convertTimeZone(\r\n    triggerBody()?['Created'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                                      "item/ID_Recepcion": "@triggerBody()?['ID']",
+                                      "item/No_Caja": "@triggerBody()?['Title']",
+                                      "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia/Value']",
+                                      "item/Tipo_Documento": "@triggerBody()?['Tipo_Documento']?['Value']",
+                                      "item/Estado_Validacion": "Aprobado",
+                                      "item/Cierre_Comunicado": "No",
+                                      "item/Cantidad_Documentos": "@length(body('Filas_ocupadas'))",
+                                      "item/Usuario_Email": "@triggerBody()?['Author']?['Email']",
+                                      "item/Usuario_Nombre": "@triggerBody()?['Author']?['DisplayName']",
+                                      "item/Tipo_Evento": "Caja recibida"
+                                    },
+                                    "host": {
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                                      "connectionName": "shared_excelonlinebusiness",
+                                      "operationId": "AddRowV2"
+                                    },
+                                    "authentication": "@parameters('$authentication')"
+                                  }
+                                }
+                              },
+                              "runAfter": {
+                                "Filas_incompletas": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "else": {
+                                "actions": {
+                                  "Actualizar_elemento_(Rechazado)_4": {
+                                    "type": "OpenApiConnection",
+                                    "inputs": {
+                                      "parameters": {
+                                        "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                        "table": "f7e84771-90f9-4c22-878c-11d6fcf04031",
+                                        "id": "@triggerBody()?['ID']",
+                                        "item/Title": "@triggerBody()?['Title']",
+                                        "item/Responsable_Notificacion": "@body('Preparar_responsables_de_notificación')",
+                                        "item/Caja_Comunicada": false,
+                                        "item/Estado_Validacion/Value": "Rechazado"
+                                      },
+                                      "host": {
+                                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                        "connectionName": "shared_sharepointonline",
+                                        "operationId": "PatchItem"
+                                      },
+                                      "authentication": "@parameters('$authentication')"
+                                    }
+                                  },
+                                  "Eliminar_archivo_4": {
+                                    "runAfter": {
+                                      "Retraso_-_Esperar_liberación_del_archivo_temporal_2": [
+                                        "Succeeded"
+                                      ]
+                                    },
+                                    "type": "OpenApiConnection",
+                                    "inputs": {
+                                      "parameters": {
+                                        "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                        "id": "@decodeUriComponent(\r\n    outputs('Crear_archivo_temporal')?['body/Id']\r\n)"
+                                      },
+                                      "host": {
+                                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                        "connectionName": "shared_sharepointonline",
+                                        "operationId": "DeleteFile"
+                                      },
+                                      "authentication": "@parameters('$authentication')"
+                                    }
+                                  },
+                                  "Publicar_mensaje_en_un_chat_o_canal_4": {
+                                    "runAfter": {
+                                      "Actualizar_elemento_(Rechazado)_4": [
+                                        "Succeeded"
+                                      ]
+                                    },
+                                    "type": "OpenApiConnection",
+                                    "inputs": {
+                                      "parameters": {
+                                        "poster": "User",
+                                        "location": "Channel",
+                                        "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                        "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                        "body/messageBody": "<p class=\"editor-paragraph\">La recepción de la caja @{triggerBody()?['Title']} no pudo procesarse porque una o varias filas de TablaCaja tienen datos obligatorios incompletos. Favor verificar las columnas Orden, Razon_Social, RNC y No_Documento, corregir el manifiesto y cargar nuevamente el requerimiento.</p>"
+                                      },
+                                      "host": {
+                                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                        "connectionName": "shared_teams",
+                                        "operationId": "PostMessageToConversation"
+                                      },
+                                      "authentication": "@parameters('$authentication')"
+                                    }
+                                  },
+                                  "Retraso_-_Esperar_liberación_del_archivo_temporal_2": {
+                                    "runAfter": {
+                                      "Publicar_mensaje_en_un_chat_o_canal_4": [
+                                        "Succeeded"
+                                      ]
+                                    },
+                                    "type": "Wait",
+                                    "inputs": {
+                                      "interval": {
+                                        "count": 6,
+                                        "unit": "Minute"
+                                      }
+                                    }
+                                  },
+                                  "Registrar_rechazo_por_filas_incompletas": {
+                                    "runAfter": {
+                                      "Actualizar_elemento_(Rechazado)_4": [
+                                        "Succeeded"
+                                      ]
+                                    },
+                                    "metadata": {
+                                      "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                                      "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                                    },
+                                    "type": "OpenApiConnection",
+                                    "inputs": {
+                                      "parameters": {
+                                        "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                                        "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                                        "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                                        "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                                        "item/Evento_ID": "@concat(\r\n    'CAJA-RECH|',\r\n    string(triggerBody()?['ID'])\r\n)",
+                                        "item/Fecha_Evento": "@convertTimeZone(\r\n    utcNow(),\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                                        "item/Fecha_Recepcion": "@convertTimeZone(\r\n    triggerBody()?['Created'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                                        "item/ID_Recepcion": "@triggerBody()?['ID']",
+                                        "item/No_Caja": "@triggerBody()?['Title']",
+                                        "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']?['Value']",
+                                        "item/Tipo_Documento": "@triggerBody()?['Tipo_Documento']?['Value']",
+                                        "item/Estado_Validacion": "Rechazado",
+                                        "item/Cierre_Comunicado": "No",
+                                        "item/Usuario_Email": "@triggerBody()?['Author']?['Email']",
+                                        "item/Usuario_Nombre": "@triggerBody()?['Author']?['DisplayName']",
+                                        "item/Tipo_Evento": "Ingesta rechazada",
+                                        "item/Motivo_Rechazo": "Filas obligatorias incompletas"
+                                      },
+                                      "host": {
+                                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                                        "connectionName": "shared_excelonlinebusiness",
+                                        "operationId": "AddRowV2"
+                                      },
+                                      "authentication": "@parameters('$authentication')"
+                                    }
+                                  }
+                                }
+                              },
+                              "expression": {
+                                "and": [
+                                  {
+                                    "equals": [
+                                      "@length(body('Filas_incompletas'))",
+                                      0
+                                    ]
+                                  }
+                                ]
+                              },
+                              "type": "If"
+                            }
+                          },
+                          "runAfter": {
+                            "Filas_ocupadas": [
+                              "Succeeded"
+                            ]
+                          },
+                          "else": {
+                            "actions": {
+                              "Actualizar_elemento_(Rechazado)_3": {
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "parameters": {
+                                    "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                    "table": "f7e84771-90f9-4c22-878c-11d6fcf04031",
+                                    "id": "@triggerBody()?['ID']",
+                                    "item/Title": "@triggerBody()?['Title']",
+                                    "item/Responsable_Notificacion": "@body('Preparar_responsables_de_notificación')",
+                                    "item/Caja_Comunicada": false,
+                                    "item/Estado_Validacion/Value": "Rechazado"
+                                  },
+                                  "host": {
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                    "connectionName": "shared_sharepointonline",
+                                    "operationId": "PatchItem"
+                                  },
+                                  "authentication": "@parameters('$authentication')"
+                                }
+                              },
+                              "Eliminar_archivo_3": {
+                                "runAfter": {
+                                  "Retraso_-_Esperar_liberación_del_archivo_temporal_1": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "parameters": {
+                                    "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                    "id": "@decodeUriComponent(\r\n    outputs('Crear_archivo_temporal')?['body/Id']\r\n)"
+                                  },
+                                  "host": {
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                    "connectionName": "shared_sharepointonline",
+                                    "operationId": "DeleteFile"
+                                  },
+                                  "authentication": "@parameters('$authentication')"
+                                }
+                              },
+                              "Publicar_mensaje_en_un_chat_o_canal_3": {
+                                "runAfter": {
+                                  "Actualizar_elemento_(Rechazado)_3": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "parameters": {
+                                    "poster": "User",
+                                    "location": "Channel",
+                                    "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                    "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                    "body/messageBody": "<p class=\"editor-paragraph\">La recepción de la caja @{triggerBody()?['Title']} no pudo procesarse porque la tabla TablaCaja no contiene documentos. Favor completar el manifiesto y cargar nuevamente el requerimiento.</p><br>"
+                                  },
+                                  "host": {
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                    "connectionName": "shared_teams",
+                                    "operationId": "PostMessageToConversation"
+                                  },
+                                  "authentication": "@parameters('$authentication')"
+                                }
+                              },
+                              "Retraso_-_Esperar_liberación_del_archivo_temporal_1": {
+                                "runAfter": {
+                                  "Publicar_mensaje_en_un_chat_o_canal_3": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "type": "Wait",
+                                "inputs": {
+                                  "interval": {
+                                    "count": 6,
+                                    "unit": "Minute"
+                                  }
+                                }
+                              },
+                              "Registrar_rechazo_por_TablaCaja_sin_documentos": {
+                                "runAfter": {
+                                  "Actualizar_elemento_(Rechazado)_3": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "metadata": {
+                                  "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                                  "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                                },
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "parameters": {
+                                    "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                                    "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                                    "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                                    "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                                    "item/Evento_ID": "@concat(\r\n    'CAJA-RECH|',\r\n    string(triggerBody()?['ID'])\r\n)",
+                                    "item/Fecha_Evento": "@convertTimeZone(\r\n    utcNow(),\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                                    "item/Fecha_Recepcion": "@convertTimeZone(\r\n    triggerBody()?['Created'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                                    "item/ID_Recepcion": "@triggerBody()?['ID']",
+                                    "item/No_Caja": "@triggerBody()?['Title']",
+                                    "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']?['Value']",
+                                    "item/Tipo_Documento": "@triggerBody()?['Tipo_Documento']?['Value']",
+                                    "item/Estado_Validacion": "Rechazado",
+                                    "item/Cierre_Comunicado": "No",
+                                    "item/Usuario_Email": "@triggerBody()?['Author']?['Email']",
+                                    "item/Usuario_Nombre": "@triggerBody()?['Author']?['DisplayName']",
+                                    "item/Tipo_Evento": "Ingesta rechazada",
+                                    "item/Motivo_Rechazo": "TablaCaja sin documentos"
+                                  },
+                                  "host": {
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                                    "connectionName": "shared_excelonlinebusiness",
+                                    "operationId": "AddRowV2"
+                                  },
+                                  "authentication": "@parameters('$authentication')"
+                                }
+                              }
+                            }
+                          },
+                          "expression": {
+                            "and": [
+                              {
+                                "greater": [
+                                  "@length(body('Filas_ocupadas'))",
+                                  0
+                                ]
+                              }
+                            ]
+                          },
+                          "type": "If"
+                        }
+                      },
+                      "runAfter": {
+                        "Buscar_TablaCaja": [
+                          "Succeeded"
+                        ]
+                      },
+                      "else": {
+                        "actions": {
+                          "Actualizar_elemento_(Rechazado)_2": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "parameters": {
+                                "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                "table": "f7e84771-90f9-4c22-878c-11d6fcf04031",
+                                "id": "@triggerBody()?['ID']",
+                                "item/Title": "@triggerBody()?['Title']",
+                                "item/Responsable_Notificacion": "@body('Preparar_responsables_de_notificación')",
+                                "item/Caja_Comunicada": false,
+                                "item/Estado_Validacion/Value": "Rechazado"
+                              },
+                              "host": {
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                "connectionName": "shared_sharepointonline",
+                                "operationId": "PatchItem"
+                              },
+                              "authentication": "@parameters('$authentication')"
+                            }
+                          },
+                          "Eliminar_archivo_2": {
+                            "runAfter": {
+                              "Retraso_-_Esperar_liberación_del_archivo_temporal_3": [
+                                "Succeeded"
+                              ]
+                            },
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "parameters": {
+                                "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                "id": "@decodeUriComponent(\r\n    outputs('Crear_archivo_temporal')?['body/Id']\r\n)"
+                              },
+                              "host": {
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                "connectionName": "shared_sharepointonline",
+                                "operationId": "DeleteFile"
+                              },
+                              "authentication": "@parameters('$authentication')"
+                            }
+                          },
+                          "Publicar_mensaje_en_un_chat_o_canal_2": {
+                            "runAfter": {
+                              "Actualizar_elemento_(Rechazado)_2": [
+                                "Succeeded"
+                              ]
+                            },
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "parameters": {
+                                "poster": "User",
+                                "location": "Channel",
+                                "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                "body/messageBody": "<p class=\"editor-paragraph\">La recepción de la caja @{triggerBody()?['Title']} no pudo procesarse porque el archivo adjunto no tiene el formato requerido. Debe adjuntarse un archivo de Excel con extensión \".xlsx\".</p><br>"
+                              },
+                              "host": {
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                "connectionName": "shared_teams",
+                                "operationId": "PostMessageToConversation"
+                              },
+                              "authentication": "@parameters('$authentication')"
+                            }
+                          },
+                          "Retraso_-_Esperar_liberación_del_archivo_temporal_3": {
+                            "runAfter": {
+                              "Publicar_mensaje_en_un_chat_o_canal_2": [
+                                "Succeeded"
+                              ]
+                            },
+                            "type": "Wait",
+                            "inputs": {
+                              "interval": {
+                                "count": 6,
+                                "unit": "Minute"
+                              }
+                            }
+                          },
+                          "Registrar_rechazo_por_TablaCaja_no_localizada": {
+                            "runAfter": {
+                              "Actualizar_elemento_(Rechazado)_2": [
+                                "Succeeded"
+                              ]
+                            },
+                            "metadata": {
+                              "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                              "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                            },
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "parameters": {
+                                "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                                "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                                "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                                "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                                "item/Evento_ID": "@concat(\r\n    'CAJA-RECH|',\r\n    string(triggerBody()?['ID'])\r\n)",
+                                "item/Fecha_Evento": "@convertTimeZone(\r\n    utcNow(),\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                                "item/Fecha_Recepcion": "@convertTimeZone(\r\n    triggerBody()?['Created'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                                "item/ID_Recepcion": "@triggerBody()?['ID']",
+                                "item/No_Caja": "@triggerBody()?['Title']",
+                                "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']?['Value']",
+                                "item/Tipo_Documento": "@triggerBody()?['Tipo_Documento']?['Value']",
+                                "item/Estado_Validacion": "Rechazado",
+                                "item/Cierre_Comunicado": "No",
+                                "item/Usuario_Email": "@triggerBody()?['Author']?['Email']",
+                                "item/Usuario_Nombre": "@triggerBody()?['Author']?['DisplayName']",
+                                "item/Tipo_Evento": "Ingesta rechazada",
+                                "item/Motivo_Rechazo": "TablaCaja no localizada"
+                              },
+                              "host": {
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                                "connectionName": "shared_excelonlinebusiness",
+                                "operationId": "AddRowV2"
+                              },
+                              "authentication": "@parameters('$authentication')"
+                            }
+                          }
+                        }
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "greater": [
+                              "@length(body('Buscar_TablaCaja'))",
+                              0
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    },
+                    "Buscar_TablaCaja": {
+                      "runAfter": {
+                        "Obtener_tablas_del_manifiesto": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@outputs('Obtener_tablas_del_manifiesto')?['body/value']",
+                        "where": "@equals(item()?['name'], 'TablaCaja')"
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {
+                      "Publicar_mensaje_en_un_chat_o_canal_1": {
+                        "runAfter": {
+                          "Actualizar_elemento_(Rechazado)_1": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "poster": "User",
+                            "location": "Channel",
+                            "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                            "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                            "body/messageBody": "<p class=\"editor-paragraph\">La recepción de la caja @{triggerBody()?['Title']} no pudo procesarse porque el archivo adjunto no tiene el formato requerido. Debe adjuntarse un archivo de Excel con extensión \".xlsx\".</p><br>"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                            "connectionName": "shared_teams",
+                            "operationId": "PostMessageToConversation"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Actualizar_elemento_(Rechazado)_1": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                            "table": "f7e84771-90f9-4c22-878c-11d6fcf04031",
+                            "id": "@triggerBody()?['ID']",
+                            "item/Title": "@triggerBody()?['Title']",
+                            "item/Responsable_Notificacion": "@body('Preparar_responsables_de_notificación')",
+                            "item/Caja_Comunicada": false,
+                            "item/Estado_Validacion/Value": "Rechazado"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "PatchItem"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Registrar_rechazo_por_archivo_no_Excel": {
+                        "runAfter": {
+                          "Actualizar_elemento_(Rechazado)_1": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                          "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                            "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                            "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                            "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                            "item/Evento_ID": "@concat(\r\n    'CAJA-RECH|',\r\n    string(triggerBody()?['ID'])\r\n)",
+                            "item/Fecha_Evento": "@convertTimeZone(\r\n    utcNow(),\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                            "item/Fecha_Recepcion": "@convertTimeZone(\r\n    triggerBody()?['Created'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                            "item/ID_Recepcion": "@triggerBody()?['ID']",
+                            "item/No_Caja": "@triggerBody()?['Title']",
+                            "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']?['Value']",
+                            "item/Tipo_Documento": "@triggerBody()?['Tipo_Documento']?['Value']",
+                            "item/Estado_Validacion": "Rechazado",
+                            "item/Cierre_Comunicado": "No",
+                            "item/Usuario_Email": "@triggerBody()?['Author']?['Email']",
+                            "item/Usuario_Nombre": "@triggerBody()?['Author']?['DisplayName']",
+                            "item/Tipo_Evento": "Ingesta rechazada",
+                            "item/Motivo_Rechazo": "Archivo adjunto no es Excel"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                            "connectionName": "shared_excelonlinebusiness",
+                            "operationId": "AddRowV2"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      }
+                    }
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "endsWith": [
+                          "@items('Aplicar_a_cada_uno')?['DisplayName']",
+                          ".xlsx"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                }
+              },
+              "type": "Foreach"
+            }
+          },
+          "runAfter": {
+            "Obtener_datos_adjuntos": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {
+              "Publicar_mensaje_en_un_chat_o_canal": {
+                "runAfter": {
+                  "Actualizar_elemento_(Rechazado)": [
+                    "Succeeded"
+                  ]
+                },
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "poster": "User",
+                    "location": "Channel",
+                    "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                    "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                    "body/messageBody": "<p class=\"editor-paragraph\">La recepción de la caja @{triggerBody()?['Title']} no pudo procesarse porque debe contener exactamente un (1) archivo Excel adjunto.</p>"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                    "connectionName": "shared_teams",
+                    "operationId": "PostMessageToConversation"
+                  },
+                  "authentication": "@parameters('$authentication')"
+                }
+              },
+              "Actualizar_elemento_(Rechazado)": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                    "table": "f7e84771-90f9-4c22-878c-11d6fcf04031",
+                    "id": "@triggerBody()?['ID']",
+                    "item/Title": "@triggerBody()?['Title']",
+                    "item/Responsable_Notificacion": "@body('Preparar_responsables_de_notificación')",
+                    "item/Caja_Comunicada": false,
+                    "item/Estado_Validacion/Value": "Rechazado"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                    "connectionName": "shared_sharepointonline",
+                    "operationId": "PatchItem"
+                  },
+                  "authentication": "@parameters('$authentication')"
+                }
+              },
+              "Registrar_rechazo_por_cantidad_de_adjuntos_en_Excel": {
+                "runAfter": {
+                  "Actualizar_elemento_(Rechazado)": [
+                    "Succeeded"
+                  ]
+                },
+                "metadata": {
+                  "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                  "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                },
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                    "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                    "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                    "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                    "item/Evento_ID": "@concat(\r\n    'CAJA-RECH|',\r\n    string(triggerBody()?['ID'])\r\n)",
+                    "item/Fecha_Evento": "@convertTimeZone(\r\n    utcNow(),\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                    "item/Fecha_Recepcion": "@convertTimeZone(\r\n    triggerBody()?['Created'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                    "item/ID_Recepcion": "@triggerBody()?['ID']",
+                    "item/No_Caja": "@triggerBody()?['Title']",
+                    "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']?['Value']",
+                    "item/Tipo_Documento": "@triggerBody()?['Tipo_Documento']?['Value']",
+                    "item/Estado_Validacion": "Rechazado",
+                    "item/Cierre_Comunicado": "No",
+                    "item/Usuario_Email": "@triggerBody()?['Author']?['Email']",
+                    "item/Usuario_Nombre": "@triggerBody()?['Author']?['DisplayName']",
+                    "item/Tipo_Evento": "Ingesta rechazada",
+                    "item/Motivo_Rechazo": "Cantidad de adjuntos inválida"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                    "connectionName": "shared_excelonlinebusiness",
+                    "operationId": "AddRowV2"
+                  },
+                  "authentication": "@parameters('$authentication')"
+                }
+              }
+            }
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@length(body('Obtener_datos_adjuntos'))",
+                  1
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        },
+        "Actualizar_elemento": {
+          "runAfter": {
+            "Preparar_responsables_de_notificación": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "f7e84771-90f9-4c22-878c-11d6fcf04031",
+              "id": "@triggerBody()?['ID']",
+              "item/Title": "@triggerBody()?['Title']",
+              "item/Responsable_Notificacion": "@body('Preparar_responsables_de_notificación')",
+              "item/Caja_Comunicada": false,
+              "item/Estado_Validacion/Value": "En proceso"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "PatchItem"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Preparar_responsables_de_notificación": {
+          "runAfter": {},
+          "type": "Select",
+          "inputs": {
+            "from": "@triggerBody()?['Responsable_Notificacion']",
+            "select": {
+              "Claims": "@item()?['Claims']"
+            }
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,0 +1,125 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_d63d9"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_o_se_modifica_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "a1238a77-302d-4735-8c5d-67aebba837ba"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline-1",
+              "operationId": "GetOnUpdatedItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Condición": {
+          "actions": {
+            "Condición_1": {
+              "actions": {
+                "Enviar_correo_electrónico_(V2)": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "emailMessage/To": "@triggerBody()?['Author/Email']",
+                      "emailMessage/Subject": "Su solicitud de eliminación de documentos y/o expedientes GDE@{triggerBody()?['ID']} ha sido solucionada",
+                      "emailMessage/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Nos complace informarle que su solicitud con ID GDE@{triggerBody()?['ID']} ha sido solucionada.<br>Detalles de lo realizado: @{triggerBody()?['Situaci_x00f3_nSolicitud']}.<br><br>Si tiene alguna pregunta o inquietud, no dude en contactarnos.<br><br>Atentamente,</p><p class=\"editor-paragraph\">@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental</p>",
+                      "emailMessage/From": "gestordocumental@dgii.gov.do",
+                      "emailMessage/Cc": "ArchivoCentralDGII@dgii.gov.do; @{triggerBody()?['Editor/Email']}; @{triggerBody()?['Copiar_x0020_a_x003a_/Email']}",
+                      "emailMessage/Importance": "Normal"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                      "connectionName": "shared_office365-1",
+                      "operationId": "SendEmailV2"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "else": {
+                "actions": {}
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@triggerBody()?['Tipodeprocezo/Value']",
+                      "Eliminado"
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {},
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@triggerBody()?['Estado/Value']",
+                  "Solucionado"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

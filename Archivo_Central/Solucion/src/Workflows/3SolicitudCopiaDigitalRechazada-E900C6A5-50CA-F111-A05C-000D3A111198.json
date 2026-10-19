@@ -1,0 +1,466 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_d63d9"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      },
+      "shared_teams-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_764af"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_modifica_un_elemento_o_un_archivo": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "887a60dd-dd10-4fa4-ac8f-34d7b154d80a"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline-1",
+              "operationId": "GetOnChangedItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Seleccionar_Correos_en_copia": {
+          "runAfter": {},
+          "type": "Select",
+          "inputs": {
+            "from": "@triggerBody()?['Copiar_x0020_a_x003a_']",
+            "select": "@item()?['Email']"
+          }
+        },
+        "Combinación_Correos_en_copia": {
+          "runAfter": {
+            "Seleccionar_Correos_en_copia": [
+              "Succeeded"
+            ]
+          },
+          "type": "Join",
+          "inputs": {
+            "from": "@body('Seleccionar_Correos_en_copia')",
+            "joinWith": "; "
+          }
+        },
+        "Obtener_cambios_para_un_elemento_o_archivo_(solo_propiedades)": {
+          "runAfter": {
+            "Combinación_Correos_en_copia": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "887a60dd-dd10-4fa4-ac8f-34d7b154d80a",
+              "id": "@triggerBody()?['ID']",
+              "since": "@triggerBody()?['{TriggerWindowStartToken}']",
+              "includeDrafts": false,
+              "until": "@triggerBody()?['{TriggerWindowEndToken}']"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline-1",
+              "operationId": "GetItemChanges"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Obtener_correos_electrónicos_(V3)": {
+          "runAfter": {
+            "Obtener_cambios_para_un_elemento_o_archivo_(solo_propiedades)": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=": "Sent Items"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "folderPath": "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=",
+              "fetchOnlyUnread": false,
+              "searchQuery": "GDC@{triggerBody()?['ID']}",
+              "top": 1
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+              "connectionName": "shared_office365-1",
+              "operationId": "GetEmailsV3"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Condición_hubo_cambio": {
+          "actions": {
+            "Condición_estado_rechazado": {
+              "actions": {
+                "Condición_No_localizado": {
+                  "actions": {
+                    "No_localizado": {
+                      "runAfter": {
+                        "For_each": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\">Solicitud con ID GDC@{triggerBody()?['ID']} ha sido rechazada por @{triggerBody()?['Editor/DisplayName']} debido a que los documentos requeridos no fueron encontrados.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams-1",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_no_localizado": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@items('For_each')?['id']",
+                              "replyParameters/To": "@items('For_each')?['toRecipients']",
+                              "replyParameters/Cc": "@items('For_each')?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Lamentamos informarle que los elementos requeridos en su solicitud de copia digital de documentos y/o expedientes GDC@{triggerBody()?['ID']}, no fueron localizados en el Archivo Central.<br><br>Si tiene alguna consulta adicional, no dude en contactarnos.<br><br>Atentamente,<br>@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365-1",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "type": "Foreach"
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                          "No localizado"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                },
+                "Condición_Datos_incompletos": {
+                  "actions": {
+                    "Datos_incompletos": {
+                      "runAfter": {
+                        "For_each_1": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\">Solicitud con ID GDC@{triggerBody()?['ID']} ha sido rechazada por @{triggerBody()?['Editor/DisplayName']} debido a que los datos del requerimiento estan incompletos.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams-1",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each_1": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_(V3)_Datos_incompletos": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@items('For_each_1')?['id']",
+                              "replyParameters/To": "@items('For_each_1')?['toRecipients']",
+                              "replyParameters/Cc": "@items('For_each_1')?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Rechazamos su solicitud de copia digital de documentos y/o expedientes GDC@{triggerBody()?['ID']}, porque la información colocada en ella no esta completa.<br><br>Si tiene alguna consulta adicional, no dude en contactarnos.<br><br>Atentamente,<br>@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365-1",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "type": "Foreach"
+                    }
+                  },
+                  "runAfter": {
+                    "Condición_No_localizado": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                          "Datos incompletos"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                },
+                "Condición_Datos_incorrectos": {
+                  "actions": {
+                    "Datos_incorrectos": {
+                      "runAfter": {
+                        "For_each_2": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\">Solicitud con ID GDC@{triggerBody()?['ID']} ha sido rechazada por @{triggerBody()?['Editor/DisplayName']} debido a que los datos del requerimiento son incorrectos.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams-1",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each_2": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_Datos_incorrectos": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@items('For_each_2')?['id']",
+                              "replyParameters/To": "@items('For_each_2')?['toRecipients']",
+                              "replyParameters/Cc": "@items('For_each_2')?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Rechazamos su solicitud de copia digital de documentos y/o expedientes GDC@{triggerBody()?['ID']}, porque la información colocada en ella es incorrecta.<br><br>Si tiene alguna consulta adicional, no dude en contactarnos.<br><br>Atentamente,<br>@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365-1",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "type": "Foreach"
+                    }
+                  },
+                  "runAfter": {
+                    "Condición_Datos_incompletos": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                          "Datos incorrectos"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                },
+                "Condición_tipo_de_solicitud_incorrecta": {
+                  "actions": {
+                    "Tipo_de_solicitud_incorrecta": {
+                      "runAfter": {
+                        "For_each_3": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\">Solicitud con ID GDC@{triggerBody()?['ID']} ha sido rechazada por @{triggerBody()?['Editor/DisplayName']} debido a que el tipo de solicitud no es correcto.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams-1",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each_3": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_(V3)_3": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@items('For_each_3')?['id']",
+                              "replyParameters/To": "@items('For_each_3')?['toRecipients']",
+                              "replyParameters/Cc": "@items('For_each_3')?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Rechazamos su solicitud de copia digital de documentos y/o expedientes GDC@{triggerBody()?['ID']}, porque el tipo de solicitud no es correcto.<br><br>Si tiene alguna consulta adicional, no dude en contactarnos.<br><br>Atentamente,<br>@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365-1",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "type": "Foreach"
+                    }
+                  },
+                  "runAfter": {
+                    "Condición_Datos_incorrectos": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                          "Tipo de solicitud incorrecta"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                }
+              },
+              "else": {
+                "actions": {
+                  "Finalizar": {
+                    "type": "Terminate",
+                    "inputs": {
+                      "runStatus": "Succeeded"
+                    }
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@triggerBody()?['Estado/Value']",
+                      "Rechazado"
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Obtener_correos_electrónicos_(V3)": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@outputs('Obtener_cambios_para_un_elemento_o_archivo_(solo_propiedades)')?['body/ColumnHasChanged/Tipodeaprobaci_x00f3_n_x002e_']",
+                  "@true"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,0 +1,188 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_d63d9"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      },
+      "shared_teams-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_3e49b"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "887a60dd-dd10-4fa4-ac8f-34d7b154d80a"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline-1",
+              "operationId": "GetOnNewItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Seleccionar_Tipo_de_documento": {
+          "runAfter": {},
+          "type": "Select",
+          "inputs": {
+            "from": "@triggerBody()?['TipodeDocumento']",
+            "select": {
+              "Value": "@item()?['Value']"
+            }
+          }
+        },
+        "Combinación_Tipo_de_documento": {
+          "runAfter": {
+            "Seleccionar_Correos_en_copia": [
+              "Succeeded"
+            ]
+          },
+          "type": "Join",
+          "inputs": {
+            "from": "@body('Seleccionar_Tipo_de_documento')",
+            "joinWith": ", "
+          }
+        },
+        "Condición_estado_Pendiente": {
+          "actions": {
+            "Enviar_correo_electrónico_(V2)": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "emailMessage/To": "ArchivoCentralDGII@dgii.gov.do",
+                  "emailMessage/Subject": "Solicitud de copia digital de documentos y/o expedientes GDC@{triggerBody()?['ID']}",
+                  "emailMessage/Body": "<p class=\"editor-paragraph\">Hola, equipo de Gestión Documental.<br><br>Se ha registrado una solicitud de copia digital ID GDC@{triggerBody()?['ID']}. Estado actual: @{triggerBody()?['Estado/Value']}.<br><br><b><strong class=\"editor-text-bold\">Detalles</strong></b></p><p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">- Titulo: </strong></b>@{triggerBody()?['Title']}@{triggerBody()?['ID']}<br><b><strong class=\"editor-text-bold\">- Solicitante: </strong></b>@{triggerBody()?['Author/DisplayName']}<br><b><strong class=\"editor-text-bold\">- Área solicitante: </strong></b>@{triggerBody()?['Area/Value']}<br><b><strong class=\"editor-text-bold\">- RNC o Cédula: </strong></b>@{triggerBody()?['RNC_x0020_o_x0020_C_x00e9_dula_x']}<br><b><strong class=\"editor-text-bold\">- Razon Social o nombre comercial: </strong></b>@{triggerBody()?['Raz_x00f3_n_x0020_Social_x0020_o']}<br><b><strong class=\"editor-text-bold\">- Tipo de documento: </strong></b>@{body('Combinación_Tipo_de_documento')}<br><b><strong class=\"editor-text-bold\">- Área de origen del documento: </strong></b>@{triggerBody()?['OData__x00c1_rea_x0020_de_x0020_origen']}<br><b><strong class=\"editor-text-bold\">- Cantidad de Documentos: </strong></b>@{triggerBody()?['CantidaddeDocumentos']}<br><b><strong class=\"editor-text-bold\">- Fecha del documento: </strong></b>@{triggerBody()?['Fecha_x0020_del_x0020_documento']}<br><b><strong class=\"editor-text-bold\">- Número de Caja (Opcional): </strong></b>@{triggerBody()?['Cantidaddecajas']}<br><b><strong class=\"editor-text-bold\">- Detalles adicionales: </strong></b>@{triggerBody()?['Comentarios']}<br><br>Favor revisarla.</p>",
+                  "emailMessage/From": "gestordocumental@dgii.gov.do",
+                  "emailMessage/Cc": "@{triggerBody()?['Author/Email']}; @{body('Combinación_Correos_en_copia')}",
+                  "emailMessage/Importance": "Normal"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "connectionName": "shared_office365-1",
+                  "operationId": "SendEmailV2"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Publicar_mensaje_en_un_chat_o_canal": {
+              "runAfter": {
+                "Enviar_correo_electrónico_(V2)": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "poster": "User",
+                  "location": "Group chat",
+                  "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                  "body/messageBody": "<p class=\"editor-paragraph\">Favor atender la solicicitud de copia digital ID GDC@{triggerBody()?['ID']}.<br><br>Estado actual: @{triggerBody()?['Estado/Value']}.<br><br>Detalles<br>- Titulo: @{triggerBody()?['Title']}@{triggerBody()?['ID']}<br>- Solicitante: @{triggerBody()?['Author/DisplayName']}<br>- Área solicitante: @{triggerBody()?['Area/Value']}<br>- RNC o Cédula: @{triggerBody()?['RNC_x0020_o_x0020_C_x00e9_dula_x']}<br>- Razon Social o nombre comercial: @{triggerBody()?['Raz_x00f3_n_x0020_Social_x0020_o']}<br>- Tipo de documento: @{body('Combinación_Tipo_de_documento')}<br>- Área de origen del documento: @{triggerBody()?['OData__x00c1_rea_x0020_de_x0020_origen']}<br>- Cantidad de Documentos: @{triggerBody()?['CantidaddeDocumentos']}<br>- Fecha del documento: @{triggerBody()?['Fecha_x0020_del_x0020_documento']}<br>- Número de Caja (Opcional): @{triggerBody()?['Cantidaddecajas']}<br>- Detalles adicionales: @{triggerBody()?['Comentarios']}<br><br>Favor revisarla.</p>"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                  "connectionName": "shared_teams-1",
+                  "operationId": "PostMessageToConversation"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            }
+          },
+          "runAfter": {
+            "Combinación_Correos_en_copia": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@triggerBody()?['Estado/Value']",
+                  "Pendiente"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        },
+        "Seleccionar_Correos_en_copia": {
+          "runAfter": {
+            "Seleccionar_Tipo_de_documento": [
+              "Succeeded"
+            ]
+          },
+          "type": "Select",
+          "inputs": {
+            "from": "@triggerBody()?['Copiar_x0020_a_x003a_']",
+            "select": "@item()?['Email']"
+          }
+        },
+        "Combinación_Correos_en_copia": {
+          "runAfter": {
+            "Combinación_Tipo_de_documento": [
+              "Succeeded"
+            ]
+          },
+          "type": "Join",
+          "inputs": {
+            "from": "@body('Seleccionar_Correos_en_copia')",
+            "joinWith": "; "
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

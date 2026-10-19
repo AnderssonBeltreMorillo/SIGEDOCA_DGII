@@ -1,0 +1,207 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_c92d6"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_9341a"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "undefined",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": "15",
+            "startTime": "2026-03-04T17:00:00Z"
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": "15",
+            "startTime": "2026-03-04T17:00:00Z"
+          },
+          "type": "Recurrence"
+        }
+      },
+      "actions": {
+        "Inicializar_variable": {
+          "runAfter": {},
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "Total PDFS",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "Mostrar_lista_de_carpetas_(Digitalizados)": {
+          "runAfter": {
+            "Inicializar_variable": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "%252fDocumentos%2bcompartidos%252fDigitalizados": "/Documentos compartidos/Digitalizados"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/ArchivoGestionElSeibo",
+              "id": "%252fDocumentos%2bcompartidos%252fDigitalizados"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "ListFolder"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Aplicar_a_cada_uno_(Tipos)": {
+          "foreach": "@body('Mostrar_lista_de_carpetas_(Digitalizados)')",
+          "actions": {
+            "Mostrar_lista_de_carpetas_2_(Tipo)": {
+              "metadata": {
+                "%252fDocumentos%2bcompartidos%252fDigitalizados": "/Documentos compartidos/Digitalizados"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://dgii.sharepoint.com/sites/ArchivoGestionElSeibo",
+                  "id": "@item()?['Id']"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "ListFolder"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Aplicar_a_cada_uno_2_(Cajas)": {
+              "foreach": "@body('Mostrar_lista_de_carpetas_2_(Tipo)')",
+              "actions": {
+                "Obtener_archivos_(solo_propiedades)": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://dgii.sharepoint.com/sites/ArchivoGestionElSeibo",
+                      "table": "8e3d6d96-69c2-4bae-94bf-4ab7defa2676",
+                      "folderPath": "@items('Aplicar_a_cada_uno_(Tipos)')?['Id']"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "GetFileItems"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runtimeConfiguration": {
+                    "paginationPolicy": {
+                      "minimumItemCount": 5000
+                    }
+                  }
+                },
+                "Filtrar_matriz": {
+                  "runAfter": {
+                    "Obtener_archivos_(solo_propiedades)": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@outputs('Obtener_archivos_(solo_propiedades)')?['body/value']",
+                    "where": "@equals(toLower(coalesce(item()?['File_x0020_Type'],'')),'pdf')"
+                  }
+                },
+                "Incrementar_variable": {
+                  "runAfter": {
+                    "Filtrar_matriz": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "IncrementVariable",
+                  "inputs": {
+                    "name": "Total PDFS",
+                    "value": "@length(body('Filtrar_matriz'))"
+                  }
+                }
+              },
+              "runAfter": {
+                "Mostrar_lista_de_carpetas_2_(Tipo)": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Foreach"
+            }
+          },
+          "runAfter": {
+            "Mostrar_lista_de_carpetas_(Digitalizados)": [
+              "Succeeded"
+            ]
+          },
+          "type": "Foreach"
+        },
+        "Actualizar_una_fila": {
+          "runAfter": {
+            "Aplicar_a_cada_uno_(Tipos)": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+            "tableId": "{D6690CB6-8731-469D-A802-B57B98C741CD}"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+              "table": "{D6690CB6-8731-469D-A802-B57B98C741CD}",
+              "idColumn": "ARCHIVO DE GESTIÓN",
+              "id": "El Seibo",
+              "item/DIGITALIZACIÓN DE DOCUMENTOS": "@variables('Total PDFS')"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+              "connectionName": "shared_excelonlinebusiness",
+              "operationId": "PatchItem"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

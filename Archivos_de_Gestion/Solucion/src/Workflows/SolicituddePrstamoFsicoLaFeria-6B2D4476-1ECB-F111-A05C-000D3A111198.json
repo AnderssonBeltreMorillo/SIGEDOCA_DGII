@@ -1,0 +1,243 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_c92d6"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_9341a"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_a5059"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      },
+      "shared_teams-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_dc8f3"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "splitOn": "@triggerBody()['rows']",
+          "type": "Request",
+          "kind": "ApiConnection",
+          "inputs": {
+            "operationId": "GetItemHybridTriggerSchema",
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/ArchivodeGestionLaFeria",
+              "table": "819cb896-06c3-479a-b976-10a633483e15"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "entity": {
+                        "properties": {
+                          "ID": {
+                            "title": "ID",
+                            "type": "integer",
+                            "format": "int64"
+                          }
+                        },
+                        "type": "object",
+                        "required": []
+                      }
+                    }
+                  }
+                }
+              },
+              "required": [
+                "rows"
+              ]
+            },
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['shared_sharepointonline']['connectionId']"
+              }
+            }
+          }
+        }
+      },
+      "actions": {
+        "Obtener_elemento_o_documento_registrado": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/ArchivodeGestionLaFeria",
+              "table": "819cb896-06c3-479a-b976-10a633483e15",
+              "id": "@triggerBody()?['entity']['ID']"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItem"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Crear_elemento_o_solicitud": {
+          "runAfter": {
+            "Obtener_elemento_o_documento_registrado": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/ArchivodeGestionLaFeria",
+              "table": "3bd8c838-d5b8-43a4-83e1-081e023893f8",
+              "item/Title": "@outputs('Obtener_elemento_o_documento_registrado')?['body/Title']",
+              "item/NombreoRaz_x00f3_nSocial": "@outputs('Obtener_elemento_o_documento_registrado')?['body/Nombre']",
+              "item/TipodeContribuyente": "@outputs('Obtener_elemento_o_documento_registrado')?['body/Tipodecontribuyente/Value']",
+              "item/Asunto_x002f_Tr_x00e1_mite0": "@outputs('Obtener_elemento_o_documento_registrado')?['body/Asunto_x002f_Tramite/Value']",
+              "item/FechadelDocumento": "@outputs('Obtener_elemento_o_documento_registrado')?['body/Fechadeldocumento']",
+              "item/FechadeRecepci_x00f3_n": "@outputs('Obtener_elemento_o_documento_registrado')?['body/FechaRecepci_x00f3_n']",
+              "item/TipodeSolicitud/Value": "Documento Físico",
+              "item/Solicitante": "@base64ToString(triggerOutputs()?['headers']?['x-ms-user-email-encoded'])",
+              "item/Estado/Value": "Pendiente",
+              "item/Condici_x00f3_n/Value": "Pendiente",
+              "item/Asunto_x002f_Tr_x00e1_mite": "@outputs('Obtener_elemento_o_documento_registrado')?['body/Asunto_x002f_Tramite/Value']"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "PostItem"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Agregar_fila_a_tabla_interacciones_la_feria_en_AC": {
+          "runAfter": {
+            "Crear_elemento_o_solicitud": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+            "tableId": "{98DB7551-8312-469B-A5DD-515DD0B63390}"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+              "table": "{98DB7551-8312-469B-A5DD-515DD0B63390}",
+              "dateTimeFormat": "ISO 8601",
+              "item/ID": "ALLF@{outputs('Crear_elemento_o_solicitud')?['body/ID']}",
+              "item/Creado": "@outputs('Crear_elemento_o_solicitud')?['body/Created']",
+              "item/RNC ~1 Cédula": "@outputs('Crear_elemento_o_solicitud')?['body/Title']",
+              "item/Nombre o Razón Social": "@outputs('Crear_elemento_o_solicitud')?['body/NombreoRaz_x00f3_nSocial']",
+              "item/Tipo de Contribuyente": "@outputs('Crear_elemento_o_solicitud')?['body/TipodeContribuyente']",
+              "item/Asunto ~1 Trámite": "@outputs('Crear_elemento_o_solicitud')?['body/Asunto_x002f_Tr_x00e1_mite0']",
+              "item/Fecha del documento": "@outputs('Crear_elemento_o_solicitud')?['body/FechadelDocumento']",
+              "item/Fecha de recepción": "@outputs('Crear_elemento_o_solicitud')?['body/FechadeRecepci_x00f3_n']",
+              "item/Tipo de Solicitud": "@outputs('Crear_elemento_o_solicitud')?['body/TipodeSolicitud/Value']",
+              "item/Solicitante": "@outputs('Crear_elemento_o_solicitud')?['body/Solicitante']",
+              "item/Estado": "@outputs('Crear_elemento_o_solicitud')?['body/Estado/Value']",
+              "item/Condición": "@outputs('Crear_elemento_o_solicitud')?['body/Condici_x00f3_n/Value']",
+              "item/Modificado": "@outputs('Crear_elemento_o_solicitud')?['body/Modified']",
+              "item/Modificado por": "@base64ToString(triggerOutputs()?['headers']?['x-ms-user-name-encoded'])"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+              "connectionName": "shared_excelonlinebusiness",
+              "operationId": "AddRowV2"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Enviar_correo_electrónico_a_las_partes_interesadas": {
+          "runAfter": {
+            "Agregar_fila_a_tabla_interacciones_la_feria_en_AC": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "emailMessage/To": "@base64ToString(triggerOutputs()?['headers']?['x-ms-user-email-encoded'])",
+              "emailMessage/Subject": "Solicitud de Documento Físico ALLF@{outputs('Crear_elemento_o_solicitud')?['body/ID']}",
+              "emailMessage/Body": "<p class=\"editor-paragraph\">Saludos @{base64ToString(triggerOutputs()?['headers']?['x-ms-user-name-encoded'])},<br><br>Le informamos que se ha registrado su solicitud de préstamo de documento físico con ID <b><strong class=\"editor-text-bold\">ALLF</strong></b>@{outputs('Crear_elemento_o_solicitud')?['body/ID']}.</p>\n<p class=\"editor-paragraph\"><br>Detalle del documento solicitado:</p>\n<table style=\"width: 100%; max-width: 600px; border-collapse: collapse; font-family: Arial, sans-serif; font-size: 14px;\">\n<tbody><tr>\n<td style=\"padding: 10px; border: 1px solid #dddddd; background-color: #f3f4f6; font-weight: bold; width: 35%;\">Fecha de recepción</td>\n<td style=\"padding: 10px; border: 1px solid #dddddd;\">@{outputs('Obtener_elemento_o_documento_registrado')?['body/FechaRecepci_x00f3_n']}</td>\n</tr>\n<tr>\n<td style=\"padding: 10px; border: 1px solid #dddddd; background-color: #f3f4f6; font-weight: bold;\">Área de procedencia</td>\n<td style=\"padding: 10px; border: 1px solid #dddddd;\">@{outputs('Obtener_elemento_o_documento_registrado')?['body/OData__x00c1_rea/Value']}</td>\n</tr>\n<tr>\n<td style=\"padding: 10px; border: 1px solid #dddddd; background-color: #f3f4f6; font-weight: bold;\">Caja donde se encuentra</td>\n<td style=\"padding: 10px; border: 1px solid #dddddd;\">@{outputs('Obtener_elemento_o_documento_registrado')?['body/OData__x0023_Caja']}</td>\n</tr>\n<tr>\n<td style=\"padding: 10px; border: 1px solid #dddddd; background-color: #f3f4f6; font-weight: bold;\">RNC</td>\n<td style=\"padding: 10px; border: 1px solid #dddddd;\">@{outputs('Obtener_elemento_o_documento_registrado')?['body/Title']}</td>\n</tr>\n<tr>\n<td style=\"padding: 10px; border: 1px solid #dddddd; background-color: #f3f4f6; font-weight: bold;\">Nombre Razón Social</td>\n<td style=\"padding: 10px; border: 1px solid #dddddd;\">@{outputs('Obtener_elemento_o_documento_registrado')?['body/Nombre']}</td>\n</tr>\n<tr>\n<td style=\"padding: 10px; border: 1px solid #dddddd; background-color: #f3f4f6; font-weight: bold;\">Descripción del Documento</td>\n<td style=\"padding: 10px; border: 1px solid #dddddd;\">@{outputs('Obtener_elemento_o_documento_registrado')?['body/Descripci_x00f3_ndelDocumento']}</td>\n</tr>\n<tr>\n<td style=\"padding: 10px; border: 1px solid #dddddd; background-color: #f3f4f6; font-weight: bold;\">Fecha del documento</td>\n<td style=\"padding: 10px; border: 1px solid #dddddd;\">@{outputs('Obtener_elemento_o_documento_registrado')?['body/Fechadeldocumento']}</td>\n</tr>\n<tr>\n<td style=\"padding: 10px; border: 1px solid #dddddd; background-color: #f3f4f6; font-weight: bold;\">Asunto / Trámite</td>\n<td style=\"padding: 10px; border: 1px solid #dddddd;\">@{outputs('Obtener_elemento_o_documento_registrado')?['body/Asunto_x002f_Tramite/Value']}</td>\n</tr>\n</tbody></table>\n<br><p class=\"editor-paragraph\">Su solicitud se encuentra pendiente y a mayor brevedad se le comunicarán los pasos a seguir en su solicitud.<br><br>Si tiene alguna inquietud no dude en contactarnos a la extensión 8630.<br><br>Gestor Documental<br>Archivo de Gestión La Feria</p>",
+              "emailMessage/Sensitivity": "5cf4054b-ee17-4196-869f-a307378ec031",
+              "emailMessage/From": "gestordocumental@dgii.gov.do",
+              "emailMessage/Cc": "Rnolasco@dgii.gov.do;rchecog@dgii.gov.do;ethomas@dgii.gov.do",
+              "emailMessage/Importance": "Normal"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+              "connectionName": "shared_office365",
+              "operationId": "SendEmailV2"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Mensaje_de_solicitud_de_documento_físico": {
+          "runAfter": {
+            "Enviar_correo_electrónico_a_las_partes_interesadas": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "poster": "User",
+              "location": "Group chat",
+              "body/recipient": "19:e6bb5fa3693a48f49c9f90662815e9bd@thread.v2",
+              "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ALLF@{outputs('Crear_elemento_o_solicitud')?['body/ID']}</strong></b> Se ha registrado una solicitud de prestamo físico, revise la lista de solicitudes en el portal.</p>"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+              "connectionName": "shared_teams-1",
+              "operationId": "PostMessageToConversation"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,0 +1,156 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_d63d9"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "a1238a77-302d-4735-8c5d-67aebba837ba"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline-1",
+              "operationId": "GetOnNewItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Condición": {
+          "actions": {
+            "Enviar_correo_electrónico_(V2)": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "emailMessage/To": "ArchivoCentralDGII@dgii.gov.do",
+                  "emailMessage/Subject": "Solicitud de eliminación de documentos y/o expedientes GDE@{triggerBody()?['ID']}",
+                  "emailMessage/Body": "<p class=\"editor-paragraph\">Hola, Equipo de Gestión Documental.<br><br>Se ha registrado una solicitud de eliminación ID GDE@{triggerBody()?['ID']}. Estado actual: @{triggerBody()?['Estado/Value']}.<br><br><u><b><strong class=\"editor-text-bold editor-text-underline\">Detalles</strong></b></u><br><b><strong class=\"editor-text-bold\">- Titulo:</strong></b> @{triggerBody()?['Title']}<br><b><strong class=\"editor-text-bold\">- Solicitante:</strong></b> @{triggerBody()?['Author/DisplayName']}<br><b><strong class=\"editor-text-bold\">- Área:</strong></b> @{triggerBody()?['Area']}<br><b><strong class=\"editor-text-bold\">- Tipo de documento:</strong></b> @{body('Combinación')}<br><b><strong class=\"editor-text-bold\">- Cantidad de Documentos:</strong></b> @{triggerBody()?['CantidaddeDocumentos']}<br><b><strong class=\"editor-text-bold\">- Cantidad de cajas:</strong></b> @{triggerBody()?['Cantidaddecajas']}<br><b><strong class=\"editor-text-bold\">- Comentarios:</strong></b> @{triggerBody()?['Comentarios']}<br><br>Favor revisarla.</p>",
+                  "emailMessage/From": "gestordocumental@dgii.gov.do",
+                  "emailMessage/Cc": "@{triggerBody()?['Author/Email']}; @{triggerBody()?['Copiar_x0020_a_x003a_/Email']}",
+                  "emailMessage/Importance": "Normal"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "connectionName": "shared_office365-1",
+                  "operationId": "SendEmailV2"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Aviso_al_equipo": {
+              "runAfter": {
+                "Enviar_correo_electrónico_(V2)": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "emailMessage/To": "ArchivoCentralDGII@dgii.gov.do",
+                  "emailMessage/Subject": "Nueva solicitud GDE@{triggerBody()?['ID']}",
+                  "emailMessage/Body": "<p class=\"editor-paragraph\">Hola, equipo de Gestión Documental.<br><br>Hay una nueva solicitud de eliminación: GDE@{triggerBody()?['ID']}. <a href=\"https://dgii.sharepoint.com/sites/GestionDocumentalDGII/Lists/Solicitudes%20de%20Eliminacin/AllItems.aspx\" class=\"editor-link\">Click aquí para ver.</a></p>",
+                  "emailMessage/From": "gestordocumental@dgii.gov.do",
+                  "emailMessage/Importance": "High"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "connectionName": "shared_office365-1",
+                  "operationId": "SendEmailV2"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            }
+          },
+          "runAfter": {
+            "Combinación": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@triggerBody()?['Estado/Value']",
+                  "Pendiente"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        },
+        "Seleccionar": {
+          "runAfter": {},
+          "type": "Select",
+          "inputs": {
+            "from": "@triggerBody()?['TipodeDocumento']",
+            "select": {
+              "Value": "@item()?['Value']"
+            }
+          }
+        },
+        "Combinación": {
+          "runAfter": {
+            "Seleccionar": [
+              "Succeeded"
+            ]
+          },
+          "type": "Join",
+          "inputs": {
+            "from": "@body('Seleccionar')",
+            "joinWith": ","
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

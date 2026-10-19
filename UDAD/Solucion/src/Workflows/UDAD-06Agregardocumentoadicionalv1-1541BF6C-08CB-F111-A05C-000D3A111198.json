@@ -1,0 +1,953 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_2bf0c"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_278ab"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      },
+      "shared_teams": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_2b3e3"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "d787971c-2e34-4720-9d89-1d9978ff2604"
+          },
+          "type": "Request",
+          "kind": "PowerAppV2",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "NumeroCaja",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Escribir entrada",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_1": {
+                  "title": "NumeroDocumento",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Escribir entrada",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_2": {
+                  "title": "RNC",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Escribir entrada",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_3": {
+                  "title": "RazonSocial",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Escribir entrada",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_4": {
+                  "description": "Introduzca su entrada",
+                  "title": "SolicitanteNombre",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text",
+                "text_1",
+                "text_2",
+                "text_3",
+                "text_4"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "Normalizar_número_de_caja": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "7dca806c-5ccc-4102-9d49-1f8be5223e18"
+          },
+          "type": "Compose",
+          "inputs": "@toUpper(trim(triggerBody()?['text']))"
+        },
+        "Normalizar_número_de_documento": {
+          "runAfter": {
+            "Normalizar_número_de_caja": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "7dca806c-5ccc-4102-9d49-1f8be5223e18"
+          },
+          "type": "Compose",
+          "inputs": "@toUpper(replace(replace(trim(triggerBody()?['text_1']),'-',''),' ',''))"
+        },
+        "Normalizar_RNC": {
+          "runAfter": {
+            "Normalizar_número_de_documento": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "7dca806c-5ccc-4102-9d49-1f8be5223e18"
+          },
+          "type": "Compose",
+          "inputs": "@replace(replace(trim(triggerBody()?['text_2']),'-',''),' ','')"
+        },
+        "Normalizar_razón_social": {
+          "runAfter": {
+            "Normalizar_RNC": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "7dca806c-5ccc-4102-9d49-1f8be5223e18"
+          },
+          "type": "Compose",
+          "inputs": "@toUpper(trim(triggerBody()?['text_3']))"
+        },
+        "Buscar_caja_seleccionada_en_Recepción": {
+          "runAfter": {
+            "Normalizar_razón_social": [
+              "Succeeded"
+            ]
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "f7e84771-90f9-4c22-878c-11d6fcf04031",
+              "$filter": "@concat('Title eq ''',replace(outputs('Normalizar_número_de_caja'),'''',''''''),'''')",
+              "$top": 1
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Condición_-_Caja_localizada": {
+          "actions": {
+            "Buscar_documento_adicional_en_Preparación": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                  "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                  "$filter": "@concat(\r\n    'No_Caja eq ''',\r\n    replace(\r\n        outputs('Normalizar_número_de_caja'),\r\n        '''',\r\n        ''''''\r\n    ),\r\n    ''' and Title eq ''',\r\n    replace(\r\n        outputs('Normalizar_número_de_documento'),\r\n        '''',\r\n        ''''''\r\n    ),\r\n    ''''\r\n)",
+                  "$top": 1
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "GetItems"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Condición_-_Documento_no_existe_en_Preparación": {
+              "actions": {
+                "Obtener_último_orden_de_la_caja": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                      "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                      "$filter": "@concat(\r\n    'No_Caja eq ''',\r\n    replace(\r\n        outputs('Normalizar_número_de_caja'),\r\n        '''',\r\n        ''''''\r\n    ),\r\n    ''''\r\n)",
+                      "$orderby": "Orden desc",
+                      "$top": 1
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "GetItems"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Calcular_nuevo_orden": {
+                  "runAfter": {
+                    "Obtener_último_orden_de_la_caja": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Compose",
+                  "inputs": "@if(\r\n    empty(\r\n        outputs('Obtener_último_orden_de_la_caja')?['body/value']\r\n    ),\r\n    1,\r\n    add(\r\n        int(\r\n            first(\r\n                outputs('Obtener_último_orden_de_la_caja')?['body/value']\r\n            )?['Orden']\r\n        ),\r\n        1\r\n    )\r\n)"
+                },
+                "Crear_documento_adicional_en_Preparación": {
+                  "runAfter": {
+                    "Calcular_nuevo_orden": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                      "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                      "item/Title": "@outputs('Normalizar_número_de_documento')",
+                      "item/No_Caja": "@outputs('Normalizar_número_de_caja')",
+                      "item/Orden": "@outputs('Calcular_nuevo_orden')",
+                      "item/Area_Procedencia": "@first(\r\n    outputs('Buscar_caja_seleccionada_en_Recepción')?['body/value']\r\n)?['Area_Procedencia']?['Value']",
+                      "item/Tipo_Documento": "@first(\r\n    outputs('Buscar_caja_seleccionada_en_Recepción')?['body/value']\r\n)?['Tipo_Documento']?['Value']",
+                      "item/Razon_Social": "@outputs('Normalizar_razón_social')",
+                      "item/RNC": "@outputs('Normalizar_RNC')",
+                      "item/Prioridad/Value": "Normal",
+                      "item/Estado/Value": "Pendiente"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "PostItem"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Obtener_documentos_válidos_de_la_caja": {
+                  "runAfter": {
+                    "Crear_documento_adicional_en_Preparación": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                      "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                      "$filter": "@concat(\r\n    'No_Caja eq ''',\r\n    replace(\r\n        outputs('Normalizar_número_de_caja'),\r\n        '''',\r\n        ''''''\r\n    ),\r\n    ''''\r\n)"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "GetItems"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  },
+                  "runtimeConfiguration": {
+                    "paginationPolicy": {
+                      "minimumItemCount": 5000
+                    }
+                  }
+                },
+                "Filtrar_documentos_recibidos_de_la_caja": {
+                  "runAfter": {
+                    "Obtener_documentos_válidos_de_la_caja": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@outputs('Obtener_documentos_válidos_de_la_caja')?['body/value']",
+                    "where": "@not(equals(item()?['Estado']?['Value'],'No recibido'))"
+                  }
+                },
+                "Calcular_cantidad_vigente_de_documentos": {
+                  "runAfter": {
+                    "Filtrar_documentos_recibidos_de_la_caja": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Compose",
+                  "inputs": "@length(\r\n    body('Filtrar_documentos_recibidos_de_la_caja')\r\n)"
+                },
+                "Buscar_fila_de_caja_recibida_en_Excel": {
+                  "runAfter": {
+                    "Calcular_cantidad_vigente_de_documentos": [
+                      "Succeeded"
+                    ]
+                  },
+                  "metadata": {
+                    "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                    "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                      "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                      "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                      "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                      "$filter": "@concat('No_Caja eq ''', replace(outputs('Normalizar_número_de_caja'),'''',''''''), '''')"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                      "connectionName": "shared_excelonlinebusiness",
+                      "operationId": "GetItems"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Condición_-_Fila_de_recepción_localizada_en_Excel": {
+                  "actions": {
+                    "Actualizar_cantidad_documental_de_la_caja_en_Excel": {
+                      "metadata": {
+                        "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                        "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                          "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                          "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                          "idColumn": "Evento_ID",
+                          "id": "@first(body('Filtrar_evento_Caja_recibida_en_Excel'))?['Evento_ID']",
+                          "item/Cantidad_Documentos": "@outputs('Calcular_cantidad_vigente_de_documentos')"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "PatchItem"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Responder_documento_creado_correctamente": {
+                      "runAfter": {
+                        "Notificar_documento_adicional_creado": [
+                          "Succeeded",
+                          "TimedOut",
+                          "Failed"
+                        ]
+                      },
+                      "type": "Response",
+                      "kind": "PowerApp",
+                      "inputs": {
+                        "schema": {
+                          "type": "object",
+                          "properties": {
+                            "mensaje": {
+                              "title": "Mensaje",
+                              "type": "string",
+                              "x-ms-content-hint": "TEXT",
+                              "x-ms-dynamically-added": true
+                            },
+                            "exito": {
+                              "title": "Exito",
+                              "type": "boolean",
+                              "x-ms-content-hint": "BOOLEAN",
+                              "x-ms-dynamically-added": true
+                            }
+                          },
+                          "additionalProperties": {}
+                        },
+                        "statusCode": 200,
+                        "body": {
+                          "mensaje": "@{concat(\r\n    'Documento ',\r\n    outputs('Normalizar_número_de_documento'),\r\n    ' agregado correctamente a la caja ',\r\n    outputs('Normalizar_número_de_caja'),\r\n    ' con el orden ',\r\n    string(outputs('Calcular_nuevo_orden')),\r\n    '. La cantidad vigente de documentos es ',\r\n    string(outputs('Calcular_cantidad_vigente_de_documentos')),\r\n    '.'\r\n)}",
+                          "exito": true
+                        }
+                      }
+                    },
+                    "Notificar_documento_adicional_creado": {
+                      "runAfter": {
+                        "Actualizar_cantidad_documental_de_la_caja_en_Excel": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Channel",
+                          "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                          "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                          "body/messageBody": "<p class=\"editor-paragraph\">DOCUMENTO ADICIONAL INCORPORADO<br><br>Caja: @{outputs('Normalizar_número_de_caja')}<br>Número de documento: @{outputs('Normalizar_número_de_documento')}<br>Orden asignado: @{outputs('Calcular_nuevo_orden')}<br>RNC o cédula: @{outputs('Normalizar_RNC')}<br>Nombre o razón social: @{outputs('Normalizar_razón_social')}<br>Área de procedencia: @{first(\r\n    outputs('Buscar_caja_seleccionada_en_Recepción')?['body/value']\r\n)?['Area_Procedencia']?['Value']}<br>Tipo de documento: @{first(\r\n    outputs('Buscar_caja_seleccionada_en_Recepción')?['body/value']\r\n)?['Tipo_Documento']?['Value']}<br>Cantidad vigente de documentos: @{outputs('Calcular_cantidad_vigente_de_documentos')}<br>Solicitado por: @{triggerBody()?['text_4']}<br><br>El documento fue agregado a Preparación con estado Pendiente y continuará mediante el proceso normal de la UDAD.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Filtrar_evento_Caja_recibida_en_Excel": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {
+                      "Responder_fila_de_Excel_no_localizada": {
+                        "runAfter": {
+                          "Notificar_reversión_por_fila_de_Excel_no_localizada": [
+                            "Succeeded",
+                            "TimedOut",
+                            "Skipped",
+                            "Failed"
+                          ],
+                          "Notificar_fallo_al_revertir_documento": [
+                            "Succeeded",
+                            "TimedOut",
+                            "Skipped",
+                            "Failed"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "mensaje": {
+                                "title": "Mensaje",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "exito": {
+                                "title": "Exito",
+                                "type": "boolean",
+                                "x-ms-content-hint": "BOOLEAN",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "mensaje": "No se encontró la fila Caja recibida en Excel. No fue posible completar correctamente la incorporación. Revise la notificación publicada en Teams y realice la validación técnica correspondiente.",
+                            "exito": false
+                          }
+                        }
+                      },
+                      "Revertir_documento_creado_por_falta_de_fila_en_Excel": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                            "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                            "id": "@outputs('Crear_documento_adicional_en_Preparación')?['body/ID']"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "DeleteItem"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Notificar_reversión_por_fila_de_Excel_no_localizada": {
+                        "runAfter": {
+                          "Revertir_documento_creado_por_falta_de_fila_en_Excel": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "poster": "User",
+                            "location": "Channel",
+                            "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                            "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                            "body/messageBody": "<p class=\"editor-paragraph\">ERROR EN INCORPORACIÓN DE DOCUMENTO ADICIONAL<br><br>Caja solicitada: @{outputs('Normalizar_número_de_caja')}<br>Número de documento: @{outputs('Normalizar_número_de_documento')}</p><p class=\"editor-paragraph\">Orden calculado: @{outputs('Calcular_nuevo_orden')}<br>RNC o cédula: @{outputs('Normalizar_RNC')}<br>Nombre o razón social: @{outputs('Normalizar_razón_social')}<br>Solicitado por: @{triggerBody()?['text_4']}<br><br>No se localizó en Datos de UDAD.xlsx la fila Caja recibida correspondiente.<br><br>El documento creado fue eliminado automáticamente de Preparación y la incorporación fue cancelada.</p><p class=\"editor-paragraph\"><br>Se requiere revisar la tabla Cajas del archivo Datos de UDAD.xlsx.</p>"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                            "connectionName": "shared_teams",
+                            "operationId": "PostMessageToConversation"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Notificar_fallo_al_revertir_documento": {
+                        "runAfter": {
+                          "Revertir_documento_creado_por_falta_de_fila_en_Excel": [
+                            "Failed",
+                            "TimedOut"
+                          ]
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "poster": "User",
+                            "location": "Channel",
+                            "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                            "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                            "body/messageBody": "<p class=\"editor-paragraph\">ERROR CRÍTICO AL REVERTIR DOCUMENTO ADICIONAL<br><br>Caja solicitada: @{outputs('Normalizar_número_de_caja')}<br>Número de documento: @{outputs('Normalizar_número_de_documento')}</p><p class=\"editor-paragraph\">Orden calculado: @{outputs('Calcular_nuevo_orden')}<br>RNC o cédula: @{outputs('Normalizar_RNC')}<br>Nombre o razón social: @{outputs('Normalizar_razón_social')}<br>Solicitado por: @{triggerBody()?['text_4']}<br><br>No se localizó la fila Caja recibida en Excel y tampoco fue posible eliminar automáticamente el documento creado en Preparación.<br><br>El documento puede permanecer en Preparación sin que la cantidad haya sido actualizada en Excel. Se requiere revisión técnica inmediata.</p>"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                            "connectionName": "shared_teams",
+                            "operationId": "PostMessageToConversation"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      }
+                    }
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@length(body('Filtrar_evento_Caja_recibida_en_Excel'))",
+                          1
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                },
+                "Filtrar_evento_Caja_recibida_en_Excel": {
+                  "runAfter": {
+                    "Buscar_fila_de_caja_recibida_en_Excel": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Query",
+                  "inputs": {
+                    "from": "@outputs('Buscar_fila_de_caja_recibida_en_Excel')?['body/value']",
+                    "where": "@equals(item()?['Tipo_Evento'],'Caja recibida')"
+                  }
+                }
+              },
+              "runAfter": {
+                "Buscar_documento_adicional_en_Preparación": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {
+                  "Reconciliar_-_Obtener_documentos_de_la_caja": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                        "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                        "$filter": "@concat(\r\n    'No_Caja eq ''',\r\n    replace(\r\n        outputs('Normalizar_número_de_caja'),\r\n        '''',\r\n        ''''''\r\n    ),\r\n    ''''\r\n)"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "connectionName": "shared_sharepointonline",
+                        "operationId": "GetItems"
+                      },
+                      "authentication": "@parameters('$authentication')"
+                    },
+                    "runtimeConfiguration": {
+                      "paginationPolicy": {
+                        "minimumItemCount": 5000
+                      }
+                    }
+                  },
+                  "Reconciliar_-_Filtrar_documentos_válidos": {
+                    "runAfter": {
+                      "Reconciliar_-_Obtener_documentos_de_la_caja": [
+                        "Succeeded"
+                      ]
+                    },
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@outputs('Reconciliar_-_Obtener_documentos_de_la_caja')?['body/value']",
+                      "where": "@not(equals(item()?['Estado']?['Value'],'No recibido'))"
+                    }
+                  },
+                  "Reconciliar_-_Calcular_cantidad_vigente": {
+                    "runAfter": {
+                      "Reconciliar_-_Filtrar_documentos_válidos": [
+                        "Succeeded"
+                      ]
+                    },
+                    "type": "Compose",
+                    "inputs": "@length(\r\n    body('Reconciliar_-_Filtrar_documentos_válidos')\r\n)"
+                  },
+                  "Reconciliar_-_Buscar_caja_en_Excel": {
+                    "runAfter": {
+                      "Reconciliar_-_Calcular_cantidad_vigente": [
+                        "Succeeded"
+                      ]
+                    },
+                    "metadata": {
+                      "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                      "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                        "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                        "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                        "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                        "$filter": "@concat(\r\n    'No_Caja eq ''',\r\n    replace(\r\n        outputs('Normalizar_número_de_caja'),\r\n        '''',\r\n        ''''''\r\n    ),\r\n    ''''\r\n)"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                        "connectionName": "shared_excelonlinebusiness",
+                        "operationId": "GetItems"
+                      },
+                      "authentication": "@parameters('$authentication')"
+                    }
+                  },
+                  "Reconciliar_-_Filtrar_evento_Caja_recibida": {
+                    "runAfter": {
+                      "Reconciliar_-_Buscar_caja_en_Excel": [
+                        "Succeeded"
+                      ]
+                    },
+                    "type": "Query",
+                    "inputs": {
+                      "from": "@outputs('Reconciliar_-_Buscar_caja_en_Excel')?['body/value']",
+                      "where": "@equals(item()?['Tipo_Evento'],'Caja recibida')"
+                    }
+                  },
+                  "Condición_-_Reconciliación_Excel_localizada": {
+                    "actions": {
+                      "Actualizar_una_fila": {
+                        "metadata": {
+                          "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                          "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                            "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                            "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                            "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                            "idColumn": "Evento_ID",
+                            "id": "@first(\r\n    body('Reconciliar_-_Filtrar_evento_Caja_recibida')\r\n)?['Evento_ID']",
+                            "item/Cantidad_Documentos": "@outputs('Reconciliar_-_Calcular_cantidad_vigente')"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                            "connectionName": "shared_excelonlinebusiness",
+                            "operationId": "PatchItem"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Notificar_documento_existente_y_Excel_sincronizado": {
+                        "runAfter": {
+                          "Actualizar_una_fila": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "poster": "User",
+                            "location": "Channel",
+                            "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                            "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                            "body/messageBody": "<p class=\"editor-paragraph\">DOCUMENTO EXISTENTE Y CANTIDAD RECONCILIADA<br><br>Caja: @{outputs('Normalizar_número_de_caja')}<br>Número de documento: @{outputs('Normalizar_número_de_documento')}<br>Cantidad vigente calculada: @{outputs('Reconciliar_-_Calcular_cantidad_vigente')}<br>Solicitado por: @{triggerBody()?['text_4']}<br><br>El documento ya existía en Preparación. No se creó otro elemento.<br><br>La cantidad de documentos de la fila Caja recibida fue sincronizada en la base de datos interna.</p>"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                            "connectionName": "shared_teams",
+                            "operationId": "PostMessageToConversation"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Responder_reconciliación_completada": {
+                        "runAfter": {
+                          "Notificar_documento_existente_y_Excel_sincronizado": [
+                            "Succeeded",
+                            "TimedOut",
+                            "Failed"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "mensaje": {
+                                "title": "Mensaje",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "exito": {
+                                "title": "Exito",
+                                "type": "boolean",
+                                "x-ms-content-hint": "BOOLEAN",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "mensaje": "El documento ya existía en Preparación. No se creó otro registro y la cantidad vigente de la caja fue sincronizada correctamente en Excel.",
+                            "exito": true
+                          }
+                        }
+                      },
+                      "Notificar_fallo_al_actualizar_reconciliación": {
+                        "runAfter": {
+                          "Actualizar_una_fila": [
+                            "TimedOut",
+                            "Failed"
+                          ]
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "poster": "User",
+                            "location": "Channel",
+                            "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                            "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                            "body/messageBody": "<p class=\"editor-paragraph\">ERROR AL SINCRONIZAR LA CANTIDAD DE LA CAJA<br><br>Caja: @{outputs('Normalizar_número_de_caja')}<br>Documento: @{outputs('Normalizar_número_de_documento')}<br>Cantidad vigente calculada: @{outputs('Reconciliar_-_Calcular_cantidad_vigente')}<br>Solicitado por: @{triggerBody()?['text_4']}</p><br><p class=\"editor-paragraph\">El documento ya existe en Preparación y se localizó la fila Caja recibida, pero no fue posible actualizar Cantidad_Documentos en la base de datos.<br><br>No se creó ningún documento duplicado. Se requiere revisión técnica.</p>"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                            "connectionName": "shared_teams",
+                            "operationId": "PostMessageToConversation"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Responder_fallo_al_actualizar_reconciliación": {
+                        "runAfter": {
+                          "Notificar_fallo_al_actualizar_reconciliación": [
+                            "Succeeded",
+                            "TimedOut",
+                            "Failed"
+                          ]
+                        },
+                        "type": "Response",
+                        "kind": "PowerApp",
+                        "inputs": {
+                          "schema": {
+                            "type": "object",
+                            "properties": {
+                              "mensaje": {
+                                "title": "Mensaje",
+                                "type": "string",
+                                "x-ms-content-hint": "TEXT",
+                                "x-ms-dynamically-added": true
+                              },
+                              "exito": {
+                                "title": "Exito",
+                                "type": "boolean",
+                                "x-ms-content-hint": "BOOLEAN",
+                                "x-ms-dynamically-added": true
+                              }
+                            },
+                            "additionalProperties": {}
+                          },
+                          "statusCode": 200,
+                          "body": {
+                            "mensaje": "El documento ya existe en Preparación, pero no fue posible sincronizar la cantidad de la caja en Excel. Se requiere revisión técnica.",
+                            "exito": false
+                          }
+                        }
+                      }
+                    },
+                    "runAfter": {
+                      "Reconciliar_-_Filtrar_evento_Caja_recibida": [
+                        "Succeeded"
+                      ]
+                    },
+                    "else": {
+                      "actions": {
+                        "ERROR_DE_RECONCILIACIÓN_DE_CAJA": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "poster": "User",
+                              "location": "Channel",
+                              "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                              "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                              "body/messageBody": "<p class=\"editor-paragraph\">ERROR DE RECONCILIACIÓN DE CAJA<br><br>Caja: @{outputs('Normalizar_número_de_caja')}<br>Documento: @{outputs('Normalizar_número_de_documento')}<br>Cantidad vigente calculada: @{outputs('Reconciliar_-_Calcular_cantidad_vigente')}<br><br>El documento existe en Preparación, pero no se localizó exactamente una fila Caja recibida en la base de datos interna.<br><br>No se modificó Excel. Se requiere revisión técnica.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                              "connectionName": "shared_teams",
+                              "operationId": "PostMessageToConversation"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        },
+                        "Responder_error_de_reconciliación": {
+                          "runAfter": {
+                            "ERROR_DE_RECONCILIACIÓN_DE_CAJA": [
+                              "Succeeded",
+                              "TimedOut",
+                              "Skipped",
+                              "Failed"
+                            ]
+                          },
+                          "type": "Response",
+                          "kind": "PowerApp",
+                          "inputs": {
+                            "schema": {
+                              "type": "object",
+                              "properties": {
+                                "mensaje": {
+                                  "title": "Mensaje",
+                                  "type": "string",
+                                  "x-ms-content-hint": "TEXT",
+                                  "x-ms-dynamically-added": true
+                                },
+                                "exito": {
+                                  "title": "Exito",
+                                  "type": "boolean",
+                                  "x-ms-content-hint": "BOOLEAN",
+                                  "x-ms-dynamically-added": true
+                                }
+                              },
+                              "additionalProperties": {}
+                            },
+                            "statusCode": 200,
+                            "body": {
+                              "mensaje": "El documento ya existe en Preparación, pero no se localizó exactamente una fila Caja recibida en Excel. No se modificó la cantidad y se requiere revisión técnica.",
+                              "exito": false
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "expression": {
+                      "and": [
+                        {
+                          "equals": [
+                            "@length(\r\n    body('Reconciliar_-_Filtrar_evento_Caja_recibida')\r\n)",
+                            1
+                          ]
+                        }
+                      ]
+                    },
+                    "type": "If"
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@length(\r\n    outputs('Buscar_documento_adicional_en_Preparación')?['body/value']\r\n)",
+                      0
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Buscar_caja_seleccionada_en_Recepción": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {
+              "Responder_caja_no_localizada": {
+                "runAfter": {
+                  "Notificar_caja_no_localizada": [
+                    "Succeeded",
+                    "TimedOut",
+                    "Skipped",
+                    "Failed"
+                  ]
+                },
+                "type": "Response",
+                "kind": "PowerApp",
+                "inputs": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "mensaje": {
+                        "title": "Mensaje",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "exito": {
+                        "title": "Exito",
+                        "type": "boolean",
+                        "x-ms-content-hint": "BOOLEAN",
+                        "x-ms-dynamically-added": true
+                      }
+                    },
+                    "additionalProperties": {}
+                  },
+                  "statusCode": 200,
+                  "body": {
+                    "mensaje": "No se encontró la caja seleccionada en Recepción de Cajas UDAD.",
+                    "exito": false
+                  }
+                }
+              },
+              "Notificar_caja_no_localizada": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "poster": "User",
+                    "location": "Channel",
+                    "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                    "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                    "body/messageBody": "<p class=\"editor-paragraph\">INCORPORACIÓN DE DOCUMENTO NO REALIZADA<br><br>Caja solicitada: @{outputs('Normalizar_número_de_caja')}<br>Número de documento: @{outputs('Normalizar_número_de_documento')}<br>RNC o cédula: @{outputs('Normalizar_RNC')}<br>Nombre o razón social: @{outputs('Normalizar_razón_social')}<br>Solicitado por: @{triggerBody()?['text_4']}<br><br>La caja seleccionada no fue localizada en Recepción de Cajas UDAD.<br><br>No se creó ningún documento. Se requiere verificar la caja seleccionada.</p>"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                    "connectionName": "shared_teams",
+                    "operationId": "PostMessageToConversation"
+                  },
+                  "authentication": "@parameters('$authentication')"
+                }
+              }
+            }
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@length(\r\n    outputs('Buscar_caja_seleccionada_en_Recepción')?['body/value']\r\n)",
+                  1
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

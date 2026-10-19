@@ -1,0 +1,161 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "invoker",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_9341a"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      },
+      "shared_sharepointonline": {
+        "runtimeSource": "invoker",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_c92d6"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "undefined",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {},
+              "required": []
+            }
+          }
+        }
+      },
+      "actions": {
+        "Enumerar_las_filas_de_una_tabla": {
+          "runAfter": {},
+          "metadata": {
+            "01TMLXZ7FAQVYVTCTPHRBZLJ7PITQN5VOV": "/Matriz control de documentos - La Feria.xlsx",
+            "tableId": "{3708D9E8-F2F9-4E94-8104-297D9501619B}"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "source": "sites/dgii.sharepoint.com,639cdc03-8418-42c9-98e7-219690b9225c,cfed1939-63d8-413c-81ef-17d7d316b1a4",
+              "drive": "b!A9ycYxiEyUKY5yGWkLkiXDkZ7c_YYzxBge8X19MWsaThF2UWEJJWQICaneRlP99m",
+              "file": "01TMLXZ7FAQVYVTCTPHRBZLJ7PITQN5VOV",
+              "table": "{3708D9E8-F2F9-4E94-8104-297D9501619B}",
+              "$filter": "Migrar eq 'SI'"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+              "connectionName": "shared_excelonlinebusiness",
+              "operationId": "GetItems"
+            },
+            "authentication": {
+              "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+              "type": "Raw"
+            }
+          },
+          "runtimeConfiguration": {
+            "paginationPolicy": {
+              "minimumItemCount": 20000
+            }
+          }
+        },
+        "Aplicar_a_cada_uno": {
+          "foreach": "@outputs('Enumerar_las_filas_de_una_tabla')?['body/value']",
+          "actions": {
+            "Condición": {
+              "actions": {
+                "Crear_elemento": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://dgii.sharepoint.com/sites/ArchivodeGestionLaFeria",
+                      "table": "819cb896-06c3-479a-b976-10a633483e15",
+                      "item/OData__x0023_Caja": "@items('Aplicar_a_cada_uno')?['CAJA _x0023_']",
+                      "item/Nombre": "@items('Aplicar_a_cada_uno')?['NOMBRE']",
+                      "item/Title": "@items('Aplicar_a_cada_uno')?['CEDULA - RNC']",
+                      "item/FechaRecepci_x00f3_n": "@addDays('1899-12-30', int(item()?['FECHA RECEPCIÓN (EN EL ARCHIVO)']))",
+                      "item/OData__x00c1_rea/Value": "@items('Aplicar_a_cada_uno')?['AREA']",
+                      "item/Tipodecontribuyente/Value": "@items('Aplicar_a_cada_uno')?['TIPO CONTRIBUYENTE']",
+                      "item/Descripci_x00f3_ndelDocumento": "@items('Aplicar_a_cada_uno')?['Descripción del Documento']",
+                      "item/Fechadeldocumento": "@addDays('1899-12-30', int(item()?['FECHA']))",
+                      "item/Asunto_x002f_Tramite/Value": "@items('Aplicar_a_cada_uno')?['ASUNTO - TRAMITE']",
+                      "item/Status/Value": "@items('Aplicar_a_cada_uno')?['STATUS']"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "PostItem"
+                    },
+                    "authentication": {
+                      "value": "@json(decodeBase64(triggerOutputs().headers['X-MS-APIM-Tokens']))['$ConnectionKey']",
+                      "type": "Raw"
+                    }
+                  }
+                }
+              },
+              "else": {
+                "actions": {}
+              },
+              "expression": {
+                "and": [
+                  {
+                    "not": {
+                      "equals": [
+                        "@items('Aplicar_a_cada_uno')?['CEDULA - RNC']",
+                        ""
+                      ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@items('Aplicar_a_cada_uno')?['ASUNTO - TRAMITE']",
+                        ""
+                      ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@items('Aplicar_a_cada_uno')?['NOMBRE']",
+                        ""
+                      ]
+                    }
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Enumerar_las_filas_de_una_tabla": [
+              "Succeeded"
+            ]
+          },
+          "type": "Foreach"
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

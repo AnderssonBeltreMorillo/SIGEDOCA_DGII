@@ -1,0 +1,112 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_a3326"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_o_se_modifica_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "a1238a77-302d-4735-8c5d-67aebba837ba"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnUpdatedItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Condición": {
+          "actions": {
+            "Agregar_una_fila_a_una_tabla": {
+              "metadata": {
+                "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                "tableId": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}"
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                  "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                  "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                  "table": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}",
+                  "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                  "item/Creación": "@triggerBody()?['Created']",
+                  "item/Gestor": "@triggerBody()?['Editor/DisplayName']"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                  "connectionName": "shared_excelonlinebusiness",
+                  "operationId": "AddRowV2"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            }
+          },
+          "runAfter": {},
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@triggerBody()?['Estado/Value']",
+                  "Solucionado"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

@@ -1,0 +1,106 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_d63d9"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_modifica_un_elemento_o_un_archivo": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "13363970-f10e-4385-ac83-5c84bc91b22f"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline-1",
+              "operationId": "GetOnChangedItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Condición_1": {
+          "actions": {
+            "Enviar_correo_electrónico_(V2)": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "emailMessage/To": " @{triggerBody()?['Author/Email']}",
+                  "emailMessage/Subject": "Su solicitud de transferencia GDT@{triggerBody()?['ID']} ha sido rechazada",
+                  "emailMessage/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Lamentamos informarle que su solicitud de transferencia con ID GDT@{triggerBody()?['ID']} ha sido rechazada. Razón del rechazo: @{triggerBody()?['Situaci_x00f3_nSolicitud']}.<br><br>Si tiene alguna consulta adicional, no dude en contactarnos.<br><br>Atentamente,<br>@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental.</p>",
+                  "emailMessage/Cc": "ArchivoCentralDGII@dgii.gov.do; @{triggerBody()?['Editor/Email']}; @{triggerBody()?['Copiar_x0020_a_x003a_/Email']}",
+                  "emailMessage/Importance": "Normal"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "connectionName": "shared_office365-1",
+                  "operationId": "SendEmailV2"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            }
+          },
+          "runAfter": {},
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@triggerBody()?['Estado/Value']",
+                  "Rechazado"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

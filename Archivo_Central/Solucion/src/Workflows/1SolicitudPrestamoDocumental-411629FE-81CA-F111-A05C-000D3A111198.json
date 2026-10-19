@@ -1,0 +1,188 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_d63d9"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      },
+      "shared_teams-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_764af"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "a12780f9-86cb-4fbd-b14d-6204b7d687a2"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline-1",
+              "operationId": "GetOnNewItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Seleccionar": {
+          "runAfter": {},
+          "type": "Select",
+          "inputs": {
+            "from": "@triggerBody()?['TipodeDocumento']",
+            "select": {
+              "Value": "@item()?['Value']"
+            }
+          }
+        },
+        "Combinación": {
+          "runAfter": {
+            "Seleccionar_Copiar_a": [
+              "Succeeded"
+            ]
+          },
+          "type": "Join",
+          "inputs": {
+            "from": "@body('Seleccionar')",
+            "joinWith": ", "
+          }
+        },
+        "Condición": {
+          "actions": {
+            "Enviar_correo_electrónico_(V2)": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "emailMessage/To": "ArchivoCentralDGII@dgii.gov.do",
+                  "emailMessage/Subject": "Solicitud de prestamo de documentos y/o expedientes GDP@{triggerBody()?['ID']}",
+                  "emailMessage/Body": "<p class=\"editor-paragraph\">Hola, Equipo de Gestión Documental.<br><br>Se ha registrado una solicitud de prestamo ID GDP@{triggerBody()?['ID']}. Estado actual: @{triggerBody()?['Estado/Value']}.</p><p class=\"editor-paragraph\"><u><b><strong class=\"editor-text-bold editor-text-underline\">Detalles</strong></b></u><br><b><strong class=\"editor-text-bold\">-</strong></b> <b><strong class=\"editor-text-bold\">Solicitante: </strong></b>@{triggerBody()?['Author/DisplayName']}<br><b><strong class=\"editor-text-bold\">-</strong></b> <b><strong class=\"editor-text-bold\">Área: </strong></b>@{triggerBody()?['Area']}<br><b><strong class=\"editor-text-bold\">- Tipo de documento:</strong></b> @{body('Combinación')}<br><b><strong class=\"editor-text-bold\">- Cantidad de Documentos: </strong></b>@{triggerBody()?['CantidaddeDocumentos']}<br><b><strong class=\"editor-text-bold\">- Cantidad de cajas: </strong></b>@{triggerBody()?['Cantidaddecajas']}<br><b><strong class=\"editor-text-bold\">-</strong></b> <b><strong class=\"editor-text-bold\">Comentarios:</strong></b> @{triggerBody()?['Comentarios']}<br><br>Favor revisarla.</p>",
+                  "emailMessage/From": "gestordocumental@dgii.gov.do",
+                  "emailMessage/Cc": "@{triggerBody()?['Author/Email']}; @{body('Combinación_Copiar_a')}",
+                  "emailMessage/Importance": "Normal"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "connectionName": "shared_office365-1",
+                  "operationId": "SendEmailV2"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Publicar_mensaje_en_un_chat_o_canal": {
+              "runAfter": {
+                "Enviar_correo_electrónico_(V2)": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "poster": "User",
+                  "location": "Group chat",
+                  "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                  "body/messageBody": "<p class=\"editor-paragraph\">Favor atender la solicicitud de <b><strong class=\"editor-text-bold\">préstamo</strong></b> ID <b><strong class=\"editor-text-bold\">GDP</strong></b>@{triggerBody()?['ID']}<b><strong class=\"editor-text-bold\">.</strong></b><b><strong class=\"editor-text-bold\"><br></strong></b><br>Estado actual: @{triggerBody()?['Estado/Value']}.<br><br>Detalles:<br><br>- Solicitante: @{triggerBody()?['Author/DisplayName']}<br>- Área: @{triggerBody()?['Area']}<br>- Tipo de documento: @{body('Combinación')}<br>- Cantidad de Documentos: @{triggerBody()?['CantidaddeDocumentos']}<br>- Cantidad de cajas: @{triggerBody()?['Cantidaddecajas']}<br>- Comentarios: @{triggerBody()?['Comentarios']}<br><br>Favor revisarla.</p>"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                  "connectionName": "shared_teams-1",
+                  "operationId": "PostMessageToConversation"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            }
+          },
+          "runAfter": {
+            "Combinación_Copiar_a": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@triggerBody()?['Estado/Value']",
+                  "Pendiente"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        },
+        "Seleccionar_Copiar_a": {
+          "runAfter": {
+            "Seleccionar": [
+              "Succeeded"
+            ]
+          },
+          "type": "Select",
+          "inputs": {
+            "from": "@triggerBody()?['Copiar_x0020_a_x003a_']",
+            "select": "@item()?['Email']"
+          }
+        },
+        "Combinación_Copiar_a": {
+          "runAfter": {
+            "Combinación": [
+              "Succeeded"
+            ]
+          },
+          "type": "Join",
+          "inputs": {
+            "from": "@body('Seleccionar_Copiar_a')",
+            "joinWith": "; "
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

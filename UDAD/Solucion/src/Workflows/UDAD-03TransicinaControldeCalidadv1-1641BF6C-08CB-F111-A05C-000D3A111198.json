@@ -1,0 +1,628 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_2bf0c"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_teams": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_2b3e3"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_278ab"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      },
+      "shared_planner": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedplanner_b70cb"
+        },
+        "api": {
+          "name": "shared_planner"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_o_se_modifica_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnUpdatedItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "conditions": [
+            {
+              "expression": "@or(     equals(triggerBody()?['Estado/Value'], 'Digitalizado'),     equals(triggerBody()?['Estado/Value'], 'Corregido') )"
+            }
+          ]
+        }
+      },
+      "actions": {
+        "Obtener_cambios_del_documento_en_Digitalización": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+              "id": "@triggerBody()?['ID']",
+              "since": "@triggerBody()?['{TriggerWindowStartToken}']",
+              "includeDrafts": false
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItemChanges"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Condición_-_Cambió_el_Estado_en_Digitalización": {
+          "actions": {
+            "Obtener_elementos_Buscar_documento_en_Control_de_Calidad": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                  "table": "4e0c3969-3f15-4c08-9b51-d7bd81462355",
+                  "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),''' and Orden eq ',string(triggerBody()?['Orden']))",
+                  "$top": 1
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "GetItems"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Condición_-_Es_primera_digitalización": {
+              "actions": {
+                "Condición_-_Documento_no_existe_en_Calidad": {
+                  "actions": {
+                    "Crear_elemento_documento_en_Control_de_Calidad": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "4e0c3969-3f15-4c08-9b51-d7bd81462355",
+                          "item/Title": "@triggerBody()?['Title']",
+                          "item/No_Caja": "@triggerBody()?['No_Caja']",
+                          "item/Orden": "@triggerBody()?['Orden']",
+                          "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']",
+                          "item/Tipo_Documento": "@triggerBody()?['Tipo_documento']",
+                          "item/Razon_Social": "@triggerBody()?['Razon_Social']",
+                          "item/RNC": "@triggerBody()?['RNC']",
+                          "item/Tipo_Error": [
+                            {
+                              "Value": "Pendiente de revisión"
+                            }
+                          ],
+                          "item/Prioridad/Value": "@triggerBody()?['Prioridad/Value']",
+                          "item/Estado/Value": "Pendiente"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "PostItem"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Obtener_documentos_caja_Digitalización": {
+                      "runAfter": {
+                        "Filtrar_documentos_vigentes_de_Preparación_para_validar_digitalización": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+                          "$filter": "@concat('No_Caja eq ''', replace(triggerBody()?['No_Caja'], '''', ''''''), '''')"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "GetItems"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      },
+                      "runtimeConfiguration": {
+                        "paginationPolicy": {
+                          "minimumItemCount": 5000
+                        }
+                      }
+                    },
+                    "Obtener_documentos_caja_Calidad": {
+                      "runAfter": {
+                        "Obtener_documentos_caja_Digitalización": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "4e0c3969-3f15-4c08-9b51-d7bd81462355",
+                          "$filter": "@concat('No_Caja eq ''', replace(triggerBody()?['No_Caja'], '''', ''''''), '''')"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "GetItems"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      },
+                      "runtimeConfiguration": {
+                        "paginationPolicy": {
+                          "minimumItemCount": 5000
+                        }
+                      }
+                    },
+                    "Obtener_último_documento_transferido_a_Calidad": {
+                      "runAfter": {
+                        "Obtener_documentos_caja_Calidad": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "4e0c3969-3f15-4c08-9b51-d7bd81462355",
+                          "$filter": "@concat('No_Caja eq ''', replace(triggerBody()?['No_Caja'], '''', ''''''), '''')",
+                          "$orderby": "ID desc",
+                          "$top": 1
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "GetItems"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Condición_-_Caja_digitalizada_completamente": {
+                      "actions": {
+                        "Publicar_mensaje_en_un_chat_o_canal_1": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "poster": "User",
+                              "location": "Channel",
+                              "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                              "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                              "body/messageBody": "<p class=\"editor-paragraph\">DIGITALIZACIÓN COMPLETADA - @{triggerBody()?['No_Caja']}<br><br>La digitalización fue completada correctamente por @{triggerBody()?['Editor/DisplayName']}.<br><br>Cantidad de documentos digitalizados: @{length(\r\n    body('Filtrar_documentos_vigentes_de_Preparación_para_validar_digitalización')\r\n)}<br>Área de procedencia: @{triggerBody()?['Area_Procedencia']}<br>Tipo de documento: @{triggerBody()?['Tipo_documento']}<br><br>Los documentos ya están disponibles para su revisión de calidad.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                              "connectionName": "shared_teams",
+                              "operationId": "PostMessageToConversation"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Obtener_último_documento_transferido_a_Calidad": [
+                          "Succeeded"
+                        ]
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "greater": [
+                              "@length(\r\n    body('Filtrar_documentos_vigentes_de_Preparación_para_validar_digitalización')\r\n)",
+                              0
+                            ]
+                          },
+                          {
+                            "equals": [
+                              "@length(\r\n    body('Filtrar_documentos_vigentes_de_Preparación_para_validar_digitalización')\r\n)",
+                              "@length(\r\n    outputs('Obtener_documentos_caja_Digitalización')?['body/value']\r\n)"
+                            ]
+                          },
+                          {
+                            "greater": [
+                              "@length(\r\n    outputs('Obtener_documentos_caja_Digitalización')?['body/value']\r\n)",
+                              0
+                            ]
+                          },
+                          {
+                            "equals": [
+                              "@length(\r\n    outputs('Obtener_documentos_caja_Digitalización')?['body/value']\r\n)",
+                              "@length(\r\n    outputs('Obtener_documentos_caja_Calidad')?['body/value']\r\n)"
+                            ]
+                          },
+                          {
+                            "equals": [
+                              "@int(\r\n    outputs('Crear_elemento_documento_en_Control_de_Calidad')?['body/ID']\r\n)",
+                              "@int(\r\n    first(\r\n        outputs('Obtener_último_documento_transferido_a_Calidad')?['body/value']\r\n    )?['ID']\r\n)"
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    },
+                    "Registrar_documento_digitalizado_en_Excel": {
+                      "runAfter": {
+                        "Crear_elemento_documento_en_Control_de_Calidad": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                        "tableId": "{C4A9A1EF-0D0D-4932-9EB0-4BEA5C05B9A3}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                          "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                          "table": "{C4A9A1EF-0D0D-4932-9EB0-4BEA5C05B9A3}",
+                          "item/Evento_ID": "@concat(\r\n    'DIG|',\r\n    string(triggerBody()?['ID'])\r\n)",
+                          "item/Fecha_Evento": "@convertTimeZone(\r\n    triggerBody()?['Modified'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                          "item/Fecha_Creacion": "@convertTimeZone(\r\n    triggerBody()?['Created'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                          "item/Duracion_Minutos": "@div(\r\n    float(\r\n        sub(\r\n            ticks(triggerBody()?['Modified']),\r\n            ticks(triggerBody()?['Created'])\r\n        )\r\n    ),\r\n    600000000\r\n)",
+                          "item/ID_SharePoint": "@triggerBody()?['ID']",
+                          "item/No_Caja": "@triggerBody()?['No_Caja']",
+                          "item/No_Documento": "@triggerBody()?['Title']",
+                          "item/Orden": "@triggerBody()?['Orden']",
+                          "item/RNC": "@triggerBody()?['RNC']",
+                          "item/Razon_Social": "@triggerBody()?['Razon_Social']",
+                          "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']",
+                          "item/Tipo_Documento": "@triggerBody()?['Tipo_documento']",
+                          "item/Prioridad": "@triggerBody()?['Prioridad']?['Value']",
+                          "item/Estado": "@triggerBody()?['Estado']?['Value']",
+                          "item/Tipo_Evento": "Documento digitalizado",
+                          "item/Tiene_Error": "No",
+                          "item/Usuario_Email": "@triggerBody()?['Editor']?['Email']",
+                          "item/Usuario_Nombre": "@triggerBody()?['Editor']?['DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Obtener_documentos_caja_Preparación_para_validar_digitalización": {
+                      "runAfter": {
+                        "Registrar_documento_digitalizado_en_Excel": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                          "$filter": "@concat(\r\n    'No_Caja eq ''',\r\n    replace(\r\n        triggerBody()?['No_Caja'],\r\n        '''',\r\n        ''''''\r\n    ),\r\n    ''''\r\n)"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "GetItems"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      },
+                      "runtimeConfiguration": {
+                        "paginationPolicy": {
+                          "minimumItemCount": 5000
+                        }
+                      }
+                    },
+                    "Filtrar_documentos_vigentes_de_Preparación_para_validar_digitalización": {
+                      "runAfter": {
+                        "Obtener_documentos_caja_Preparación_para_validar_digitalización": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@outputs('Obtener_documentos_caja_Preparación_para_validar_digitalización')?['body/value']",
+                        "where": "@not(equals(item()?['Estado']?['Value'],'No recibido'))"
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@length(\r\n    outputs('Obtener_elementos_Buscar_documento_en_Control_de_Calidad')?['body/value']\r\n)",
+                          0
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                }
+              },
+              "runAfter": {
+                "Obtener_elementos_Buscar_documento_en_Control_de_Calidad": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {
+                  "Condición_-_Documento_existe_para_nueva_revisión": {
+                    "actions": {
+                      "Reenviar_documento_corregido_a_Calidad": {
+                        "runAfter": {
+                          "Preparar_errores_para_reenviar_a_Calidad": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                            "table": "4e0c3969-3f15-4c08-9b51-d7bd81462355",
+                            "id": "@first(\r\n    outputs('Obtener_elementos_Buscar_documento_en_Control_de_Calidad')?['body/value']\r\n)?['ID']",
+                            "item/Title": "@triggerBody()?['Title']",
+                            "item/No_Caja": "@triggerBody()?['No_Caja']",
+                            "item/Orden": "@triggerBody()?['Orden']",
+                            "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']",
+                            "item/Tipo_Documento": "@triggerBody()?['Tipo_documento']",
+                            "item/Razon_Social": "@triggerBody()?['Razon_Social']",
+                            "item/RNC": "@triggerBody()?['RNC']",
+                            "item/Tipo_Error": "@body('Preparar_errores_para_reenviar_a_Calidad')",
+                            "item/Prioridad/Value": "@triggerBody()?['Prioridad/Value']",
+                            "item/Estado/Value": "Corregido"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "PatchItem"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Condición_-_Existe_tarea_de_Planner": {
+                        "actions": {
+                          "Marcar_tarea_en_curso": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "parameters": {
+                                "id": "@triggerBody()?['Planner_Task_ID']",
+                                "body/percentComplete": "In Progress"
+                              },
+                              "host": {
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_planner",
+                                "connectionName": "shared_planner",
+                                "operationId": "UpdateTask_V2"
+                              },
+                              "authentication": "@parameters('$authentication')"
+                            }
+                          }
+                        },
+                        "runAfter": {
+                          "Reenviar_documento_corregido_a_Calidad": [
+                            "Succeeded"
+                          ]
+                        },
+                        "else": {
+                          "actions": {}
+                        },
+                        "expression": {
+                          "and": [
+                            {
+                              "equals": [
+                                "@empty(\r\n    coalesce(\r\n        triggerBody()?['Planner_Task_ID'],\r\n        ''\r\n    )\r\n)",
+                                "@false"
+                              ]
+                            }
+                          ]
+                        },
+                        "type": "If"
+                      },
+                      "Extraer_errores_de_corrección_para_Excel": {
+                        "runAfter": {
+                          "Reenviar_documento_corregido_a_Calidad": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Select",
+                        "inputs": {
+                          "from": "@first(\r\n    outputs('Obtener_elementos_Buscar_documento_en_Control_de_Calidad')?['body/value']\r\n)?['Tipo_Error']\r\n",
+                          "select": "@item()?['Value']"
+                        }
+                      },
+                      "Unir_errores_de_corrección_para_Excel": {
+                        "runAfter": {
+                          "Extraer_errores_de_corrección_para_Excel": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Join",
+                        "inputs": {
+                          "from": "@body('Extraer_errores_de_corrección_para_Excel')",
+                          "joinWith": ", "
+                        }
+                      },
+                      "Registrar_documento_corregido_en_Excel": {
+                        "runAfter": {
+                          "Unir_errores_de_corrección_para_Excel": [
+                            "Succeeded"
+                          ]
+                        },
+                        "metadata": {
+                          "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                          "tableId": "{C4A9A1EF-0D0D-4932-9EB0-4BEA5C05B9A3}"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                            "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                            "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                            "table": "{C4A9A1EF-0D0D-4932-9EB0-4BEA5C05B9A3}",
+                            "item/Evento_ID": "@concat(\r\n    'CORR|',\r\n    string(triggerBody()?['ID']),\r\n    '|',\r\n    string(ticks(triggerBody()?['Modified']))\r\n)",
+                            "item/Fecha_Evento": "@convertTimeZone(\r\n    triggerBody()?['Modified'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                            "item/Fecha_Creacion": "@convertTimeZone(\r\n    triggerBody()?['Created'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                            "item/ID_SharePoint": "@triggerBody()?['ID']",
+                            "item/No_Caja": "@triggerBody()?['No_Caja']",
+                            "item/No_Documento": "@triggerBody()?['Title']",
+                            "item/Orden": "@triggerBody()?['Orden']",
+                            "item/RNC": "@triggerBody()?['RNC']",
+                            "item/Razon_Social": "@triggerBody()?['Razon_Social']",
+                            "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']",
+                            "item/Tipo_Documento": "@triggerBody()?['Tipo_documento']",
+                            "item/Prioridad": "@triggerBody()?['Prioridad']?['Value']",
+                            "item/Estado": "@triggerBody()?['Estado']?['Value']",
+                            "item/Tipo_Evento": "Documento corregido",
+                            "item/Tiene_Error": "Sí",
+                            "item/Tipos_Error": "@body('Unir_errores_de_corrección_para_Excel')",
+                            "item/Usuario_Email": "@triggerBody()?['Editor']?['Email']",
+                            "item/Usuario_Nombre": "@triggerBody()?['Editor']?['DisplayName']",
+                            "item/Planner_Task_ID": "@triggerBody()?['Planner_Task_ID']"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                            "connectionName": "shared_excelonlinebusiness",
+                            "operationId": "AddRowV2"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      },
+                      "Preparar_errores_para_reenviar_a_Calidad": {
+                        "type": "Select",
+                        "inputs": {
+                          "from": "@first(\r\n    outputs('Obtener_elementos_Buscar_documento_en_Control_de_Calidad')?['body/value']\r\n)?['Tipo_Error']",
+                          "select": {
+                            "Value": "@item()?['Value']"
+                          }
+                        }
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "Publicar_mensaje_en_un_chat_o_canal": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "poster": "User",
+                              "location": "Channel",
+                              "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                              "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                              "body/messageBody": "<p class=\"editor-paragraph\">Inconsistencia en el proceso de corrección<br><br>No fue posible reenviar a Control de Calidad el documento @{triggerBody()?['Title']} de la caja @{triggerBody()?['No_Caja']}.<br><br>El documento aparece con estado Corregido en Digitalización, pero no existe un registro correspondiente en Control de Calidad UDAD.<br><br>Se requiere revisión de la Lista Control de Calidad UDAD y la lista Digitalización de Documentos UDAD.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                              "connectionName": "shared_teams",
+                              "operationId": "PostMessageToConversation"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      }
+                    },
+                    "expression": {
+                      "and": [
+                        {
+                          "greater": [
+                            "@length(\r\n    outputs('Obtener_elementos_Buscar_documento_en_Control_de_Calidad')?['body/value']\r\n)",
+                            0
+                          ]
+                        }
+                      ]
+                    },
+                    "type": "If"
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@triggerBody()?['Estado/Value']",
+                      "Digitalizado"
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Obtener_cambios_del_documento_en_Digitalización": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@outputs('Obtener_cambios_del_documento_en_Digitalización')?['body/ColumnHasChanged/Estado']",
+                  "@true"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

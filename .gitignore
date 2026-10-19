@@ -1,0 +1,58 @@
+# ============================================================
+# SIGEDOCA_DGII
+# Archivos locales, temporales y potencialmente confidenciales
+# ============================================================
+
+# Visual Studio Code - configuración local
+.vscode/
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Archivos temporales
+*.tmp
+*.temp
+*.bak
+*.log
+*.cache
+~$*
+
+# Variables de entorno y secretos
+.env
+.env.*
+*.env
+*.secret
+*.secrets
+
+# Certificados, claves y credenciales
+*.pem
+*.key
+*.pfx
+*.p12
+*.cer
+*.crt
+
+# Archivos de autenticación/configuración local
+auth.json
+credentials.json
+secrets.json
+
+# PowerShell / herramientas temporales
+*.user
+*.suo
+
+# Excel temporales generados por Microsoft Office
+~$*.xlsx
+~$*.xlsm
+~$*.xls
+
+# Power BI temporales
+*.pbix.tmp
+
+# Directorios temporales de trabajo
+temp/
+tmp/
+backup/
+backups/

@@ -1,0 +1,244 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_d63d9"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      },
+      "shared_teams-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_764af"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_o_se_modifica_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "a12780f9-86cb-4fbd-b14d-6204b7d687a2"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline-1",
+              "operationId": "GetOnUpdatedItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Aprobado": {
+          "actions": {
+            "Localizando_documentos": {
+              "actions": {
+                "Enviar_correo_electrónico_(V2)_Localizando_documentos": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "emailMessage/To": "@triggerBody()?['Author/Email']",
+                      "emailMessage/Subject": "Su solicitud de préstamo de documentos y/o expedientes GDP@{triggerBody()?['ID']} ha sido aprobada",
+                      "emailMessage/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Su solicitud de prestamo de documentos y/o expedientes con ID GDP@{triggerBody()?['ID']} ha sido aprobada. Nuestro equipo está trabajando para localizar los documentos.<br><br>Nos comunicaremos con usted si necesitamos más información.<br><br>Atentamente, <br>@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental.</p>",
+                      "emailMessage/From": "gestordocumental@dgii.gov.do",
+                      "emailMessage/Cc": "ArchivoCentralDGII@dgii.gov.do; @{triggerBody()?['Editor/Email']}; @{body('Combinación_Copiar_a')}",
+                      "emailMessage/Importance": "Normal"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                      "connectionName": "shared_office365-1",
+                      "operationId": "SendEmailV2"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Aviso_de_quien_atiende_por_teams": {
+                  "runAfter": {
+                    "Enviar_correo_electrónico_(V2)_Localizando_documentos": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "poster": "User",
+                      "location": "Group chat",
+                      "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                      "body/messageBody": "<p class=\"editor-paragraph\">La solicitud GDP@{triggerBody()?['ID']} esta siendo atendida por @{triggerBody()?['Editor/DisplayName']}.</p>"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                      "connectionName": "shared_teams-1",
+                      "operationId": "PostMessageToConversation"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "else": {
+                "actions": {}
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                      "Localizando documentos"
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            },
+            "Reasignación_interna": {
+              "actions": {
+                "Enviar_correo_electrónico_(V2)_2": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "emailMessage/To": "@triggerBody()?['Author/Email']",
+                      "emailMessage/Subject": "Su solicitud de préstamo de documentos y/o expedientes GDP@{triggerBody()?['ID']} se demorará",
+                      "emailMessage/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Su solicitud de prestamo de documentos y/o expedientes con ID GDP@{triggerBody()?['ID']} se demorará debído a falta de recursos o de personal.<br><br>Nos comunicaremos con usted si necesitamos más información.<br><br>Atentamente,<br>@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental.</p>",
+                      "emailMessage/From": "gestordocumental@dgii.gov.do",
+                      "emailMessage/Cc": "ArchivoCentralDGII@dgii.gov.do; @{triggerBody()?['Editor/Email']}; @{body('Combinación_Copiar_a')}",
+                      "emailMessage/Importance": "Normal"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                      "connectionName": "shared_office365-1",
+                      "operationId": "SendEmailV2"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Aviso_de_quien_atiende_por_teams_1": {
+                  "runAfter": {
+                    "Enviar_correo_electrónico_(V2)_2": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "poster": "User",
+                      "location": "Group chat",
+                      "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                      "body/messageBody": "<p class=\"editor-paragraph\">La solicitud GDP@{triggerBody()?['ID']} esta siendo atendida por @{triggerBody()?['Editor/DisplayName']}.</p>"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                      "connectionName": "shared_teams-1",
+                      "operationId": "PostMessageToConversation"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {
+                "Localizando_documentos": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {}
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                      "Reasignación interna"
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Combinación_Copiar_a": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@triggerBody()?['Estado/Value']",
+                  "Aprobado"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        },
+        "Seleccionar_Copiar_a": {
+          "runAfter": {},
+          "type": "Select",
+          "inputs": {
+            "from": "@triggerBody()?['Copiar_x0020_a_x003a_']",
+            "select": "@item()?['Email']"
+          }
+        },
+        "Combinación_Copiar_a": {
+          "runAfter": {
+            "Seleccionar_Copiar_a": [
+              "Succeeded"
+            ]
+          },
+          "type": "Join",
+          "inputs": {
+            "from": "@body('Seleccionar_Copiar_a')",
+            "joinWith": "; "
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

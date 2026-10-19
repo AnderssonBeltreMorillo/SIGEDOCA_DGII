@@ -1,0 +1,317 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_d63d9"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      },
+      "shared_teams-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_764af"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      },
+      "shared_teams-2": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_3e49b"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_modifica_un_elemento_o_un_archivo": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "a12780f9-86cb-4fbd-b14d-6204b7d687a2"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline-1",
+              "operationId": "GetOnChangedItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Rechazado": {
+          "actions": {
+            "No_localizado": {
+              "actions": {
+                "Enviar_correo_electrónico_(V2)_No_localizado": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "emailMessage/To": "@triggerBody()?['Author/Email']",
+                      "emailMessage/Subject": "Lo requerido en la solicitud GDP@{triggerBody()?['ID']} no se encuentra en el Archivo Central",
+                      "emailMessage/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Lamentamos informarle que los documentos requeridos en su solicitud de préstamo de documentos y/o expedientes GDP@{triggerBody()?['ID']} no se encuentran en el Archivo Central.<br><br>Si tiene alguna consulta adicional, no dude en contactarnos.<br><br>Atentamente,<br>@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental.</p>",
+                      "emailMessage/From": "gestordocumental@dgii.gov.do",
+                      "emailMessage/Cc": "ArchivoCentralDGII@dgii.gov.do; @{triggerBody()?['Editor/Email']}; @{body('Combinación_Copiar_a')}",
+                      "emailMessage/Importance": "Normal"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                      "connectionName": "shared_office365-1",
+                      "operationId": "SendEmailV2"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Publicar_mensaje_en_un_chat_o_canal_No_localizado": {
+                  "runAfter": {
+                    "Enviar_correo_electrónico_(V2)_No_localizado": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "poster": "User",
+                      "location": "Group chat",
+                      "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                      "body/messageBody": "<p class=\"editor-paragraph\">El requerimiento de la solicitud con ID GDP@{triggerBody()?['ID']} no fue localizado por @{triggerBody()?['Editor/DisplayName']}.</p>"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                      "connectionName": "shared_teams-1",
+                      "operationId": "PostMessageToConversation"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "else": {
+                "actions": {}
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                      "No localizado"
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            },
+            "Datos_incompletos": {
+              "actions": {
+                "Enviar_correo_electrónico_(V2)_Datos_incompletos": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "emailMessage/To": "@triggerBody()?['Author/Email']",
+                      "emailMessage/Subject": "Datos incompletos en la solicitud GDP@{triggerBody()?['ID']}",
+                      "emailMessage/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Los datos estan incompletos en su solicitud de préstamo de documentos y/o expedientes GDP@{triggerBody()?['ID']}. Realice una nueva solicitud con todos los datos correspondientes.<br><br>Si tiene alguna consulta adicional, no dude en contactarnos.<br><br>Atentamente,<br>@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental.</p>",
+                      "emailMessage/From": "gestordocumental@dgii.gov.do",
+                      "emailMessage/Cc": "ArchivoCentralDGII@dgii.gov.do; @{triggerBody()?['Editor/Email']}; @{body('Combinación_Copiar_a')}",
+                      "emailMessage/Importance": "Normal"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                      "connectionName": "shared_office365-1",
+                      "operationId": "SendEmailV2"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Publicar_mensaje_en_un_chat_o_canal_incompletos": {
+                  "runAfter": {
+                    "Enviar_correo_electrónico_(V2)_Datos_incompletos": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "poster": "User",
+                      "location": "Group chat",
+                      "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                      "body/messageBody": "<p class=\"editor-paragraph\">Los datos de la solicitud con ID GDP@{triggerBody()?['ID']} estan incompletos, fueron revisados por @{triggerBody()?['Editor/DisplayName']}.</p>"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                      "connectionName": "shared_teams-2",
+                      "operationId": "PostMessageToConversation"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {
+                "No_localizado": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {}
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                      "Datos incompletos"
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            },
+            "Datos_incorrectos": {
+              "actions": {
+                "Enviar_correo_electrónico_(V2)_Datos_incorrectos": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "emailMessage/To": "@triggerBody()?['Author/Email']",
+                      "emailMessage/Subject": "Datos incorrectos en la solicitud GDP@{triggerBody()?['ID']}",
+                      "emailMessage/Body": "<p class=\"editor-paragraph\">Estimado/a @{triggerBody()?['Author/DisplayName']},<br><br>Los datos son incorrectos o no se relacionan en su solicitud de préstamo de documentos y/o expedientes GDP@{triggerBody()?['ID']}. Realice una nueva solicitud con todos los datos correctos.<br><br>Si tiene alguna consulta adicional, no dude en contactarnos.<br><br>Atentamente,<br>@{triggerBody()?['Editor/DisplayName']}<br>Equipo de Gestión Documental.</p>",
+                      "emailMessage/From": "gestordocumental@dgii.gov.do",
+                      "emailMessage/Cc": "ArchivoCentralDGII@dgii.gov.do; @{triggerBody()?['Editor/Email']}; @{body('Combinación_Copiar_a')}",
+                      "emailMessage/Importance": "Normal"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                      "connectionName": "shared_office365-1",
+                      "operationId": "SendEmailV2"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Publicar_mensaje_en_un_chat_o_canal_incorrectos": {
+                  "runAfter": {
+                    "Enviar_correo_electrónico_(V2)_Datos_incorrectos": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "poster": "User",
+                      "location": "Group chat",
+                      "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                      "body/messageBody": "<p class=\"editor-paragraph\">Los datos de la solicitud con ID GDP@{triggerBody()?['ID']} son incorrectos, fueron revisados por @{triggerBody()?['Editor/DisplayName']}.</p>"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                      "connectionName": "shared_teams-2",
+                      "operationId": "PostMessageToConversation"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {
+                "Datos_incompletos": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {}
+              },
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                      "Datos incorrectos"
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Combinación_Copiar_a": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@triggerBody()?['Estado/Value']",
+                  "Rechazado"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        },
+        "Seleccionar_Copiar_a": {
+          "runAfter": {},
+          "type": "Select",
+          "inputs": {
+            "from": "@triggerBody()?['Copiar_x0020_a_x003a_']",
+            "select": "@item()?['Email']"
+          }
+        },
+        "Combinación_Copiar_a": {
+          "runAfter": {
+            "Seleccionar_Copiar_a": [
+              "Succeeded"
+            ]
+          },
+          "type": "Join",
+          "inputs": {
+            "from": "@body('Seleccionar_Copiar_a')",
+            "joinWith": "; "
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

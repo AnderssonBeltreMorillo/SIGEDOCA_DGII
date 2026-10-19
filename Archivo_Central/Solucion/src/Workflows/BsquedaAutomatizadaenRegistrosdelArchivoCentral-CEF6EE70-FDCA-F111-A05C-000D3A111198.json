@@ -1,0 +1,200 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_teams-1": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_764af"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_a3326"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "887a60dd-dd10-4fa4-ac8f-34d7b154d80a"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline-1",
+              "operationId": "GetOnNewItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Condición_Evaluar_si_hay_registros": {
+          "actions": {
+            "Mensaje_Registros_Encontrados": {
+              "runAfter": {
+                "Crear_tabla_HTML": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "poster": "User",
+                  "location": "Group chat",
+                  "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                  "body/messageBody": "<p class=\"editor-paragraph\">De la solicitud GDC@{triggerBody()?['ID']} se visualizan los siguientes registros:<br><br>@{body('Crear_tabla_HTML')}</p>"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                  "connectionName": "shared_teams-1",
+                  "operationId": "PostMessageToConversation"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Seleccionar_datos_a_mostrar": {
+              "type": "Select",
+              "inputs": {
+                "from": "@outputs('Enumerar_las_filas_de_una_tabla')?['body/value']",
+                "select": {
+                  "Fecha de recepción": "@item()?['FECHA RECEPCIÓN (EN EL ARCHIVO)']",
+                  "Área de procedencia": "@item()?['AREA']",
+                  "Cája donde se encuentra": "@item()?['CAJA _x0023_']",
+                  "RNC": "@item()?['CEDULAxRNC']",
+                  "Nombre Razón Social": "@item()?['NOMBRE']",
+                  "Descripción del Documento": "@item()?['Descripción del Documento']",
+                  "Fecha del documento": "@item()?['FECHA']"
+                }
+              }
+            },
+            "Crear_tabla_HTML": {
+              "runAfter": {
+                "Seleccionar_datos_a_mostrar": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Table",
+              "inputs": {
+                "from": "@body('Seleccionar_datos_a_mostrar')",
+                "format": "HTML"
+              }
+            }
+          },
+          "runAfter": {
+            "Enumerar_las_filas_de_una_tabla": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {
+              "Mensaje_No_Registros_Encontrados": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "poster": "User",
+                    "location": "Group chat",
+                    "body/recipient": "19:4da3541bb907484c810648e57f1de607@thread.v2",
+                    "body/messageBody": "<p class=\"editor-paragraph\">En la solicitud ID GDC@{triggerBody()?['ID']}, el RNC/Cédula @{outputs('LimpiarRNC')} no fue encontrado en el archivo maestro. Por favor, realice la búsqueda manual en los registros físicos.</p>"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                    "connectionName": "shared_teams-1",
+                    "operationId": "PostMessageToConversation"
+                  },
+                  "authentication": "@parameters('$authentication')"
+                }
+              }
+            }
+          },
+          "expression": {
+            "and": [
+              {
+                "greater": [
+                  "@length(outputs('Enumerar_las_filas_de_una_tabla')?['body/value'])",
+                  0
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        },
+        "LimpiarRNC": {
+          "runAfter": {},
+          "type": "Compose",
+          "inputs": "@replace(triggerBody()?['RNC_x0020_o_x0020_C_x00e9_dula_x'], '-', '')"
+        },
+        "Enumerar_las_filas_de_una_tabla": {
+          "runAfter": {
+            "LimpiarRNC": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "01PZOABV3JARKTGCP7MZDZKHAQBMNAY5C7": "/Base de Datos de Registros Migrados.xlsx",
+            "tableId": "{00000000-000C-0000-FFFF-FFFF00000000}"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+              "file": "01PZOABV3JARKTGCP7MZDZKHAQBMNAY5C7",
+              "table": "{00000000-000C-0000-FFFF-FFFF00000000}",
+              "$filter": "CEDULAxRNC eq '@{outputs('LimpiarRNC')}'"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+              "connectionName": "shared_excelonlinebusiness",
+              "operationId": "GetItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

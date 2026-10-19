@@ -1,0 +1,151 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_c92d6"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_9341a"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "undefined",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": "15",
+            "startTime": "2026-03-04T17:00:00Z"
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": "15",
+            "startTime": "2026-03-04T17:00:00Z"
+          },
+          "type": "Recurrence"
+        }
+      },
+      "actions": {
+        "Obtener_archivos_(solo_propiedades)": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/ArchivoDeGestionLosMina",
+              "table": "166517e1-9210-4056-809a-9de4653fdf66",
+              "$filter": "File_x0020_Type eq 'pdf' and FSObjType eq 0"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetFileItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runtimeConfiguration": {
+            "paginationPolicy": {
+              "minimumItemCount": 5000
+            }
+          }
+        },
+        "Inicializar_variable": {
+          "runAfter": {
+            "Obtener_archivos_(solo_propiedades)": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "Total PDFS",
+                "type": "integer",
+                "value": "@length(body('Obtener_archivos_(solo_propiedades)')?['value'])"
+              }
+            ]
+          }
+        },
+        "Enumerar_las_filas_de_una_tabla": {
+          "runAfter": {
+            "Inicializar_variable": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+            "tableId": "{D6690CB6-8731-469D-A802-B57B98C741CD}"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+              "table": "{D6690CB6-8731-469D-A802-B57B98C741CD}"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+              "connectionName": "shared_excelonlinebusiness",
+              "operationId": "GetItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Actualizar_una_fila": {
+          "runAfter": {
+            "Enumerar_las_filas_de_una_tabla": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+            "tableId": "{D6690CB6-8731-469D-A802-B57B98C741CD}"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+              "table": "{D6690CB6-8731-469D-A802-B57B98C741CD}",
+              "idColumn": "ARCHIVO DE GESTIÓN",
+              "id": "Los Mina",
+              "item/DIGITALIZACIÓN DE DOCUMENTOS": "@variables('Total PDFS')"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+              "connectionName": "shared_excelonlinebusiness",
+              "operationId": "PatchItem"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

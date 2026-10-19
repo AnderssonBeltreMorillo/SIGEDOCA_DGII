@@ -1,0 +1,728 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_2bf0c"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_2201b"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "undefined",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": "3",
+            "startTime": "2026-08-24T14:00:00Z",
+            "timeZone": "SA Western Standard Time"
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": "3",
+            "startTime": "2026-08-24T14:00:00Z",
+            "timeZone": "SA Western Standard Time"
+          },
+          "type": "Recurrence",
+          "runtimeConfiguration": {
+            "concurrency": {
+              "runs": 1
+            }
+          }
+        }
+      },
+      "actions": {
+        "Obtener_solicitudes_urgentes_activas": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "272827df-d57d-409c-896c-4f2975a4e4bf",
+              "$filter": "Estado_Solicitud ne 'Completada' and Estado_Solicitud ne 'Cancelada'",
+              "$orderby": "Created asc"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "runtimeConfiguration": {
+            "paginationPolicy": {
+              "minimumItemCount": 5000
+            }
+          }
+        },
+        "Procesar_cada_solicitud_urgente": {
+          "foreach": "@outputs('Obtener_solicitudes_urgentes_activas')?['body/value']",
+          "actions": {
+            "Buscar_documento_urgente_en_Control_de_Calidad": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                  "table": "4e0c3969-3f15-4c08-9b51-d7bd81462355",
+                  "$filter": "@concat(\r\n    'Title eq ''',\r\n    replace(items('Procesar_cada_solicitud_urgente')?['Title'], '''', ''''''),\r\n    ''' and RNC eq ''',\r\n    replace(items('Procesar_cada_solicitud_urgente')?['RNC'], '''', ''''''),\r\n    ''''\r\n)",
+                  "$top": 1
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "GetItems"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Buscar_documento_urgente_en_Digitalización": {
+              "runAfter": {
+                "Buscar_documento_urgente_en_Control_de_Calidad": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                  "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+                  "$filter": "@concat(\r\n    'Title eq ''',\r\n    replace(items('Procesar_cada_solicitud_urgente')?['Title'], '''', ''''''),\r\n    ''' and RNC eq ''',\r\n    replace(items('Procesar_cada_solicitud_urgente')?['RNC'], '''', ''''''),\r\n    ''''\r\n)",
+                  "$top": 1
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "GetItems"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Buscar_documento_urgente_en_Preparación": {
+              "runAfter": {
+                "Buscar_documento_urgente_en_Digitalización": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                  "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                  "$filter": "@concat(\r\n    'Title eq ''',\r\n    replace(items('Procesar_cada_solicitud_urgente')?['Title'], '''', ''''''),\r\n    ''' and RNC eq ''',\r\n    replace(items('Procesar_cada_solicitud_urgente')?['RNC'], '''', ''''''),\r\n    ''''\r\n)",
+                  "$top": 1
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "GetItems"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Condición_-_Documento_existe_en_Control_de_Calidad": {
+              "actions": {
+                "Condición_-_Prioridad_urgente_aplicada_en_Calidad": {
+                  "actions": {},
+                  "else": {
+                    "actions": {
+                      "Marcar_documento_urgente_en_Control_de_Calidad": {
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                            "table": "4e0c3969-3f15-4c08-9b51-d7bd81462355",
+                            "id": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['ID']",
+                            "item/No_Caja": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['No_Caja']",
+                            "item/Orden": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Orden']",
+                            "item/Area_Procedencia": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Area_Procedencia']",
+                            "item/Tipo_Documento": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Tipo_Documento']",
+                            "item/Razon_Social": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Razon_Social']",
+                            "item/RNC": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['RNC']",
+                            "item/Tipo_Error": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Tipo_Error']",
+                            "item/Title": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Title']",
+                            "item/Prioridad/Value": "URGENTE",
+                            "item/Estado/Value": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Estado']?['Value']"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "PatchItem"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      }
+                    }
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Prioridad']?['Value']",
+                          "URGENTE"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                },
+                "Determinar_estado_del_documento_urgente_en_Calidad": {
+                  "runAfter": {
+                    "Preparar_responsables_para_actualizar_solicitud_en_Calidad": [
+                      "Succeeded"
+                    ]
+                  },
+                  "cases": {
+                    "Pendiente": {
+                      "case": "Pendiente",
+                      "actions": {
+                        "Actualizar_solicitud_urgente_en_Control_de_Calidad_pendiente": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                              "table": "272827df-d57d-409c-896c-4f2975a4e4bf",
+                              "id": "@items('Procesar_cada_solicitud_urgente')?['ID']",
+                              "item/Title": "@items('Procesar_cada_solicitud_urgente')?['Title']",
+                              "item/RNC": "@items('Procesar_cada_solicitud_urgente')?['RNC']",
+                              "item/Responsable_Notificacion": "@body('Preparar_responsables_para_actualizar_solicitud_en_Calidad')",
+                              "item/Prioridad_Aplicada": true,
+                              "item/Razcon_Social": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Razon_Social']",
+                              "item/No_Caja_Localizada": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['No_Caja']",
+                              "item/Estado_Solicitud/Value": "En control de calidad",
+                              "item/Etapa_Localizada/Value": "Control de Calidad",
+                              "item/Notificacion_Enviada": false,
+                              "item/Observaciones": "@items('Procesar_cada_solicitud_urgente')?['Observaciones']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "PatchItem"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      }
+                    },
+                    "Corregido": {
+                      "case": "Corregido",
+                      "actions": {
+                        "Actualizar_solicitud_urgente_en_Calidad_corregida": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                              "table": "272827df-d57d-409c-896c-4f2975a4e4bf",
+                              "id": "@items('Procesar_cada_solicitud_urgente')?['ID']",
+                              "item/Title": "@items('Procesar_cada_solicitud_urgente')?['Title']",
+                              "item/RNC": "@items('Procesar_cada_solicitud_urgente')?['RNC']",
+                              "item/Responsable_Notificacion": "@body('Preparar_responsables_para_actualizar_solicitud_en_Calidad')",
+                              "item/Prioridad_Aplicada": true,
+                              "item/Razcon_Social": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Razon_Social']",
+                              "item/No_Caja_Localizada": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['No_Caja']",
+                              "item/Estado_Solicitud/Value": "En control de calidad",
+                              "item/Etapa_Localizada/Value": "Control de Calidad",
+                              "item/Notificacion_Enviada": false,
+                              "item/Observaciones": "@items('Procesar_cada_solicitud_urgente')?['Observaciones']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "PatchItem"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      }
+                    },
+                    "Rechazado": {
+                      "case": "Rechazado",
+                      "actions": {
+                        "Actualizar_solicitud_urgente_en_corrección": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                              "table": "272827df-d57d-409c-896c-4f2975a4e4bf",
+                              "id": "@items('Procesar_cada_solicitud_urgente')?['ID']",
+                              "item/Title": "@items('Procesar_cada_solicitud_urgente')?['Title']",
+                              "item/RNC": "@items('Procesar_cada_solicitud_urgente')?['RNC']",
+                              "item/Responsable_Notificacion": "@body('Preparar_responsables_para_actualizar_solicitud_en_Calidad')",
+                              "item/Prioridad_Aplicada": true,
+                              "item/Razcon_Social": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Razon_Social']",
+                              "item/No_Caja_Localizada": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['No_Caja']",
+                              "item/Estado_Solicitud/Value": "En corrección",
+                              "item/Etapa_Localizada/Value": "Control de Calidad",
+                              "item/Notificacion_Enviada": false,
+                              "item/Observaciones": "@items('Procesar_cada_solicitud_urgente')?['Observaciones']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "PatchItem"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      }
+                    },
+                    "Calidad_aprobada": {
+                      "case": "Calidad aprobada",
+                      "actions": {
+                        "Condición_-_Solicitud_urgente_no_comunicada": {
+                          "actions": {
+                            "Extraer_correos_de_solicitud_urgente_completada": {
+                              "type": "Select",
+                              "inputs": {
+                                "from": "@items('Procesar_cada_solicitud_urgente')?['Responsable_Notificacion']",
+                                "select": "@item()?['Email']"
+                              }
+                            },
+                            "Unir_correos_de_solicitud_urgente_completada": {
+                              "runAfter": {
+                                "Extraer_correos_de_solicitud_urgente_completada": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "type": "Join",
+                              "inputs": {
+                                "from": "@body('Extraer_correos_de_solicitud_urgente_completada')",
+                                "joinWith": ";"
+                              }
+                            },
+                            "Enviar_solución_de_solicitud_urgente": {
+                              "runAfter": {
+                                "Unir_nombres_de_solicitud_urgente_completada": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "emailMessage/To": "@body('Unir_correos_de_solicitud_urgente_completada')",
+                                  "emailMessage/Subject": "Documento urgente disponible - Documento No. @{items('Procesar_cada_solicitud_urgente')?['Title']}",
+                                  "emailMessage/Body": "<p class=\"editor-paragraph\">Saludos @{body('Unir_nombres_de_solicitud_urgente_completada')}<br><br>Se informa que el documento solicitado se encuentra digitalizado, revisado y disponible para consulta.<br><br>Número de documento: @{first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Title']}<br>RNC / Cédula: @{first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['RNC']}<br>Nombre / Razón Social: @{first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Razon_Social']}<br>Número de caja: @{first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['No_Caja']}<br><br>El documento superó satisfactoriamente el proceso de Control de Calidad.<br><br>Equipo de la Unidad de Digitalización y Almacenamiento de Datos</p>",
+                                  "emailMessage/Cc": "UnidadDigitalizacionAlmacenamientodeDatos@dgii.gov.do",
+                                  "emailMessage/Importance": "Normal"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                                  "connectionName": "shared_office365",
+                                  "operationId": "SendEmailV2"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                              }
+                            },
+                            "Extraer_nombres_de_solicitud_urgente_completada": {
+                              "runAfter": {
+                                "Unir_correos_de_solicitud_urgente_completada": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "type": "Select",
+                              "inputs": {
+                                "from": "@items('Procesar_cada_solicitud_urgente')?['Responsable_Notificacion']",
+                                "select": "@item()?['DisplayName']"
+                              }
+                            },
+                            "Unir_nombres_de_solicitud_urgente_completada": {
+                              "runAfter": {
+                                "Extraer_nombres_de_solicitud_urgente_completada": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "type": "Join",
+                              "inputs": {
+                                "from": "@body('Extraer_nombres_de_solicitud_urgente_completada')",
+                                "joinWith": ", "
+                              }
+                            },
+                            "Completar_solicitud_urgente_localizada_en_Calidad": {
+                              "runAfter": {
+                                "Enviar_solución_de_solicitud_urgente": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                  "table": "272827df-d57d-409c-896c-4f2975a4e4bf",
+                                  "id": "@items('Procesar_cada_solicitud_urgente')?['ID']",
+                                  "item/Title": "@items('Procesar_cada_solicitud_urgente')?['Title']",
+                                  "item/RNC": "@items('Procesar_cada_solicitud_urgente')?['RNC']",
+                                  "item/Responsable_Notificacion": "@body('Preparar_responsables_para_actualizar_solicitud_en_Calidad')",
+                                  "item/Prioridad_Aplicada": true,
+                                  "item/Razcon_Social": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Razon_Social']",
+                                  "item/No_Caja_Localizada": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['No_Caja']",
+                                  "item/Estado_Solicitud/Value": "Completada",
+                                  "item/Etapa_Localizada/Value": "Finalizada",
+                                  "item/Notificacion_Enviada": true,
+                                  "item/Observaciones": "@items('Procesar_cada_solicitud_urgente')?['Observaciones']"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                  "connectionName": "shared_sharepointonline",
+                                  "operationId": "PatchItem"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                              }
+                            }
+                          },
+                          "else": {
+                            "actions": {}
+                          },
+                          "expression": {
+                            "and": [
+                              {
+                                "equals": [
+                                  "@coalesce(\r\n    items('Procesar_cada_solicitud_urgente')?['Notificacion_Enviada'],\r\n    false\r\n)",
+                                  "@false"
+                                ]
+                              }
+                            ]
+                          },
+                          "type": "If"
+                        }
+                      }
+                    }
+                  },
+                  "default": {
+                    "actions": {}
+                  },
+                  "expression": "@first(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)?['Estado']?['Value']",
+                  "type": "Switch"
+                },
+                "Preparar_responsables_para_actualizar_solicitud_en_Calidad": {
+                  "runAfter": {
+                    "Condición_-_Prioridad_urgente_aplicada_en_Calidad": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Select",
+                  "inputs": {
+                    "from": "@items('Procesar_cada_solicitud_urgente')?['Responsable_Notificacion']",
+                    "select": {
+                      "Claims": "@item()?['Claims']"
+                    }
+                  }
+                }
+              },
+              "runAfter": {
+                "Buscar_documento_urgente_en_Preparación": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {
+                  "Condición_-_Documento_existe_en_Digitalización": {
+                    "actions": {
+                      "Condición_-_Prioridad_urgente_aplicada_en_Digitalización": {
+                        "actions": {},
+                        "else": {
+                          "actions": {
+                            "Marcar_documento_urgente_en_Digitalización": {
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                  "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+                                  "id": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['ID']",
+                                  "item/No_Caja": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['No_Caja']",
+                                  "item/Orden": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['Orden']",
+                                  "item/Area_Procedencia": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['Area_Procedencia']",
+                                  "item/Tipo_documento": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['Tipo_Documento']",
+                                  "item/Razon_Social": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['Razon_Social']",
+                                  "item/RNC": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['RNC']",
+                                  "item/Title": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['Title']",
+                                  "item/Prioridad/Value": "URGENTE",
+                                  "item/Estado/Value": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['Estado']?['Value']",
+                                  "item/Tipo_Error": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['Tipo_Error']",
+                                  "item/Planner_Task_ID": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['Planner_Task_ID']"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                  "connectionName": "shared_sharepointonline",
+                                  "operationId": "PatchItem"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                              }
+                            }
+                          }
+                        },
+                        "expression": {
+                          "and": [
+                            {
+                              "equals": [
+                                "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['Prioridad']?['Value']",
+                                "URGENTE"
+                              ]
+                            }
+                          ]
+                        },
+                        "type": "If"
+                      },
+                      "Preparar_responsables_para_solicitud_en_Digitalización": {
+                        "runAfter": {
+                          "Condición_-_Prioridad_urgente_aplicada_en_Digitalización": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "Select",
+                        "inputs": {
+                          "from": "@items('Procesar_cada_solicitud_urgente')?['Responsable_Notificacion']",
+                          "select": {
+                            "Claims": "@item()?['Claims']"
+                          }
+                        }
+                      },
+                      "Actualizar_solicitud_urgente_localizada_en_Digitalización": {
+                        "runAfter": {
+                          "Preparar_responsables_para_solicitud_en_Digitalización": [
+                            "Succeeded"
+                          ]
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                            "table": "272827df-d57d-409c-896c-4f2975a4e4bf",
+                            "id": "@items('Procesar_cada_solicitud_urgente')?['ID']",
+                            "item/Title": "@items('Procesar_cada_solicitud_urgente')?['Title']",
+                            "item/RNC": "@items('Procesar_cada_solicitud_urgente')?['RNC']",
+                            "item/Responsable_Notificacion": "@body('Preparar_responsables_para_solicitud_en_Digitalización')",
+                            "item/Prioridad_Aplicada": true,
+                            "item/Razcon_Social": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['Razon_Social']",
+                            "item/No_Caja_Localizada": "@first(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)?['No_Caja']",
+                            "item/Estado_Solicitud/Value": "En digitalización",
+                            "item/Etapa_Localizada/Value": "Digitalización",
+                            "item/Notificacion_Enviada": false,
+                            "item/Observaciones": "@items('Procesar_cada_solicitud_urgente')?['Observaciones']"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                            "connectionName": "shared_sharepointonline",
+                            "operationId": "PatchItem"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      }
+                    },
+                    "else": {
+                      "actions": {
+                        "Condición_-_Documento_existe_en_Preparación": {
+                          "actions": {
+                            "Condición_-_Prioridad_urgente_aplicada_en_Preparación": {
+                              "actions": {},
+                              "else": {
+                                "actions": {
+                                  "Marcar_documento_urgente_en_Preparación": {
+                                    "type": "OpenApiConnection",
+                                    "inputs": {
+                                      "parameters": {
+                                        "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                        "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                                        "id": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['ID']",
+                                        "item/Title": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['Title']",
+                                        "item/No_Caja": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['No_Caja']",
+                                        "item/Orden": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['Orden']",
+                                        "item/Area_Procedencia": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['Area_Procedencia']",
+                                        "item/Tipo_Documento": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['Tipo_Documento']",
+                                        "item/Razon_Social": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['Razon_Social']\r\n",
+                                        "item/RNC": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['RNC']",
+                                        "item/Prioridad/Value": "URGENTE",
+                                        "item/Estado/Value": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['Estado']?['Value']"
+                                      },
+                                      "host": {
+                                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                        "connectionName": "shared_sharepointonline",
+                                        "operationId": "PatchItem"
+                                      },
+                                      "authentication": "@parameters('$authentication')"
+                                    }
+                                  }
+                                }
+                              },
+                              "expression": {
+                                "and": [
+                                  {
+                                    "equals": [
+                                      "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['Prioridad']?['Value']",
+                                      "URGENTE"
+                                    ]
+                                  }
+                                ]
+                              },
+                              "type": "If"
+                            },
+                            "Preparar_responsables_para_solicitud_en_Preparación": {
+                              "runAfter": {
+                                "Condición_-_Prioridad_urgente_aplicada_en_Preparación": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "type": "Select",
+                              "inputs": {
+                                "from": "@items('Procesar_cada_solicitud_urgente')?['Responsable_Notificacion']",
+                                "select": {
+                                  "Claims": "@item()?['Claims']"
+                                }
+                              }
+                            },
+                            "Actualizar_solicitud_urgente_localizada_en_Preparación": {
+                              "runAfter": {
+                                "Preparar_responsables_para_solicitud_en_Preparación": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                  "table": "272827df-d57d-409c-896c-4f2975a4e4bf",
+                                  "id": "@items('Procesar_cada_solicitud_urgente')?['ID']",
+                                  "item/Title": "@items('Procesar_cada_solicitud_urgente')?['Title']",
+                                  "item/RNC": "@items('Procesar_cada_solicitud_urgente')?['RNC']",
+                                  "item/Responsable_Notificacion": "@body('Preparar_responsables_para_solicitud_en_Preparación')",
+                                  "item/Prioridad_Aplicada": true,
+                                  "item/Razcon_Social": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['Razon_Social']",
+                                  "item/No_Caja_Localizada": "@first(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)?['No_Caja']",
+                                  "item/Estado_Solicitud/Value": "En preparación",
+                                  "item/Etapa_Localizada/Value": "Preparación",
+                                  "item/Notificacion_Enviada": false,
+                                  "item/Observaciones": "@items('Procesar_cada_solicitud_urgente')?['Observaciones']"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                  "connectionName": "shared_sharepointonline",
+                                  "operationId": "PatchItem"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                              }
+                            }
+                          },
+                          "else": {
+                            "actions": {
+                              "Preparar_responsables_de_solicitud_no_localizada": {
+                                "type": "Select",
+                                "inputs": {
+                                  "from": "@items('Procesar_cada_solicitud_urgente')?['Responsable_Notificacion']",
+                                  "select": {
+                                    "Claims": "@item()?['Claims']"
+                                  }
+                                }
+                              },
+                              "Actualizar_solicitud_pendiente_de_localización": {
+                                "runAfter": {
+                                  "Preparar_responsables_de_solicitud_no_localizada": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "parameters": {
+                                    "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                    "table": "272827df-d57d-409c-896c-4f2975a4e4bf",
+                                    "id": "@items('Procesar_cada_solicitud_urgente')?['ID']",
+                                    "item/Title": "@items('Procesar_cada_solicitud_urgente')?['Title']",
+                                    "item/RNC": "@items('Procesar_cada_solicitud_urgente')?['RNC']",
+                                    "item/Responsable_Notificacion": "@body('Preparar_responsables_de_solicitud_no_localizada')",
+                                    "item/Prioridad_Aplicada": false,
+                                    "item/Razcon_Social": "@items('Procesar_cada_solicitud_urgente')?['Razcon_Social']",
+                                    "item/Estado_Solicitud/Value": "Pendiente de localización",
+                                    "item/Etapa_Localizada/Value": "No localizada",
+                                    "item/Notificacion_Enviada": false,
+                                    "item/Observaciones": "@items('Procesar_cada_solicitud_urgente')?['Observaciones']"
+                                  },
+                                  "host": {
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                    "connectionName": "shared_sharepointonline",
+                                    "operationId": "PatchItem"
+                                  },
+                                  "authentication": "@parameters('$authentication')"
+                                }
+                              }
+                            }
+                          },
+                          "expression": {
+                            "and": [
+                              {
+                                "greater": [
+                                  "@length(\r\n    outputs('Buscar_documento_urgente_en_Preparación')?['body/value']\r\n)",
+                                  0
+                                ]
+                              }
+                            ]
+                          },
+                          "type": "If"
+                        }
+                      }
+                    },
+                    "expression": {
+                      "and": [
+                        {
+                          "greater": [
+                            "@length(\r\n    outputs('Buscar_documento_urgente_en_Digitalización')?['body/value']\r\n)",
+                            0
+                          ]
+                        }
+                      ]
+                    },
+                    "type": "If"
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "greater": [
+                      "@length(\r\n    outputs('Buscar_documento_urgente_en_Control_de_Calidad')?['body/value']\r\n)",
+                      0
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Obtener_solicitudes_urgentes_activas": [
+              "Succeeded"
+            ]
+          },
+          "type": "Foreach",
+          "runtimeConfiguration": {
+            "concurrency": {
+              "repetitions": 5
+            }
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

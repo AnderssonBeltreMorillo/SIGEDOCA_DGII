@@ -1,0 +1,739 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_ce3d3"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_a3326"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_o_se_modifica_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 5
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "887a60dd-dd10-4fa4-ac8f-34d7b154d80a"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnUpdatedItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Enumerar_las_filas_de_una_tabla": {
+          "runAfter": {},
+          "metadata": {
+            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+            "tableId": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}"
+          },
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+              "table": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}",
+              "$filter": "ID eq 'GDC@{triggerBody()?['ID']}'"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+              "connectionName": "shared_excelonlinebusiness",
+              "operationId": "GetItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Si_ya_esta_registrado": {
+          "actions": {
+            "Validar_área_permitida": {
+              "actions": {
+                "Condición_Estado_Solucionado": {
+                  "actions": {
+                    "Condición_de_aprobación_Entregado": {
+                      "actions": {
+                        "Agregar_una_fila_a_una_tabla": {
+                          "metadata": {
+                            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                            "tableId": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                              "table": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}",
+                              "dateTimeFormat": "ISO 8601",
+                              "item/ID": "GDC@{triggerBody()?['ID']}",
+                              "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                              "item/Creación": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Created'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Respuesta": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Modified'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Gestor": "@triggerBody()?['Editor/DisplayName']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "AddRowV2"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                              "Entregado"
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    }
+                  },
+                  "else": {
+                    "actions": {
+                      "Agregar_una_fila_a_interacción_1_1": {
+                        "metadata": {
+                          "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                          "tableId": "{2311D215-F21D-4034-9DD9-EBF3F5BADE3D}"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                            "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                            "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                            "table": "{2311D215-F21D-4034-9DD9-EBF3F5BADE3D}",
+                            "dateTimeFormat": "ISO 8601",
+                            "item/ID": "GDC@{triggerBody()?['ID']}",
+                            "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                            "item/Creación": "@triggerBody()?['Created']",
+                            "item/Respuesta": "@triggerBody()?['Modified']",
+                            "item/Gestor": "@triggerBody()?['Editor/DisplayName']",
+                            "item/Estado": "@triggerBody()?['Estado/Value']",
+                            "item/Condición": "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                            "item/Situación solicitud": "@triggerBody()?['Situaci_x00f3_nSolicitud']"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                            "connectionName": "shared_excelonlinebusiness",
+                            "operationId": "AddRowV2"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      }
+                    }
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@triggerBody()?['Estado/Value']",
+                          "Solucionado"
+                        ]
+                      },
+                      {
+                        "and": [
+                          {
+                            "equals": [
+                              "",
+                              ""
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                },
+                "Condición_Estado_Rechazado": {
+                  "actions": {
+                    "Condición_de_aprobación_No_localizado": {
+                      "actions": {
+                        "Agregar_una_fila_a_una_tabla_2": {
+                          "metadata": {
+                            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                            "tableId": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                              "table": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}",
+                              "dateTimeFormat": "ISO 8601",
+                              "item/ID": "GDC@{triggerBody()?['ID']}",
+                              "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                              "item/Creación": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Created'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Respuesta": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Modified'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Gestor": "@triggerBody()?['Editor/DisplayName']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "AddRowV2"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                              "No localizado"
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    },
+                    "Condición_de_aprobación_Datos_incompletos": {
+                      "actions": {
+                        "Agregar_una_fila_a_una_tabla_3": {
+                          "metadata": {
+                            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                            "tableId": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                              "table": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}",
+                              "dateTimeFormat": "ISO 8601",
+                              "item/ID": "GDC@{triggerBody()?['ID']}",
+                              "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                              "item/Creación": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Created'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Respuesta": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Modified'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Gestor": "@triggerBody()?['Editor/DisplayName']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "AddRowV2"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Condición_de_aprobación_No_localizado": [
+                          "Succeeded"
+                        ]
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                              "Datos incompletos"
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    },
+                    "Condición_de_aprobación_Datos_incorrectos": {
+                      "actions": {
+                        "Agregar_una_fila_a_una_tabla_4": {
+                          "metadata": {
+                            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                            "tableId": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                              "table": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}",
+                              "dateTimeFormat": "ISO 8601",
+                              "item/ID": "GDC@{triggerBody()?['ID']}",
+                              "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                              "item/Creación": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Created'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Respuesta": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Modified'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Gestor": "@triggerBody()?['Editor/DisplayName']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "AddRowV2"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Condición_de_aprobación_Datos_incompletos": [
+                          "Succeeded"
+                        ]
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                              "Datos incorrectos"
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    },
+                    "Condición_de_aprobación_Tipo_de_solicitud_incorrecta": {
+                      "actions": {
+                        "Agregar_una_fila_a_una_tabla_6": {
+                          "metadata": {
+                            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                            "tableId": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                              "table": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}",
+                              "dateTimeFormat": "ISO 8601",
+                              "item/ID": "GDC@{triggerBody()?['ID']}",
+                              "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                              "item/Creación": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Created'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Respuesta": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Modified'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Gestor": "@triggerBody()?['Editor/DisplayName']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "AddRowV2"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Condición_de_aprobación_Datos_incorrectos": [
+                          "Succeeded"
+                        ]
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                              "Tipo de solicitud incorrecta"
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    }
+                  },
+                  "runAfter": {
+                    "Condición_Estado_Solucionado": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {
+                      "Agregar_una_fila_a_interacción_1_2": {
+                        "metadata": {
+                          "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                          "tableId": "{2311D215-F21D-4034-9DD9-EBF3F5BADE3D}"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                            "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                            "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                            "table": "{2311D215-F21D-4034-9DD9-EBF3F5BADE3D}",
+                            "dateTimeFormat": "ISO 8601",
+                            "item/ID": "GDC@{triggerBody()?['ID']}",
+                            "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                            "item/Creación": "@triggerBody()?['Created']",
+                            "item/Respuesta": "@triggerBody()?['Modified']",
+                            "item/Gestor": "@triggerBody()?['Editor/DisplayName']",
+                            "item/Estado": "@triggerBody()?['Estado/Value']",
+                            "item/Condición": "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                            "item/Situación solicitud": "@triggerBody()?['Situaci_x00f3_nSolicitud']"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                            "connectionName": "shared_excelonlinebusiness",
+                            "operationId": "AddRowV2"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      }
+                    }
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@triggerBody()?['Estado/Value']",
+                          "Rechazado"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                },
+                "Condición_Estado_Aprobado": {
+                  "actions": {
+                    "Condición_de_aprobación_Reasignación_interna": {
+                      "actions": {
+                        "Agregar_una_fila_a_una_tabla_1": {
+                          "metadata": {
+                            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                            "tableId": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                              "table": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}",
+                              "dateTimeFormat": "ISO 8601",
+                              "item/ID": "GDC@{triggerBody()?['ID']}",
+                              "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                              "item/Creación": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Created'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Respuesta": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Modified'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Gestor": "@triggerBody()?['Editor/DisplayName']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "AddRowV2"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                              "Reasignación interna"
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    },
+                    "Condición_de_aprobación_Digitalización_en_proceso": {
+                      "actions": {
+                        "Agregar_una_fila_a_una_tabla_5": {
+                          "metadata": {
+                            "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                            "tableId": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                              "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                              "table": "{33975DD1-14B7-415C-9DF7-792A779C6B7B}",
+                              "dateTimeFormat": "ISO 8601",
+                              "item/ID": "GDC@{triggerBody()?['ID']}",
+                              "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                              "item/Creación": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Created'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Respuesta": "@\r\nformatDateTime(\r\n    convertTimeZone(triggerOutputs()?['body/Modified'], 'UTC', 'SA Western Standard Time'),\r\n    'dd/MM/yyyy HH:mm'\r\n)\r\n",
+                              "item/Gestor": "@triggerBody()?['Editor/DisplayName']"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "AddRowV2"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Condición_de_aprobación_Reasignación_interna": [
+                          "Succeeded"
+                        ]
+                      },
+                      "else": {
+                        "actions": {}
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                              "Digitalización en proceso"
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    }
+                  },
+                  "runAfter": {
+                    "Condición_Estado_Rechazado": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {
+                      "Agregar_una_fila_a_interacción_1_3": {
+                        "metadata": {
+                          "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                          "tableId": "{2311D215-F21D-4034-9DD9-EBF3F5BADE3D}"
+                        },
+                        "type": "OpenApiConnection",
+                        "inputs": {
+                          "parameters": {
+                            "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                            "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                            "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                            "table": "{2311D215-F21D-4034-9DD9-EBF3F5BADE3D}",
+                            "dateTimeFormat": "ISO 8601",
+                            "item/ID": "GDC@{triggerBody()?['ID']}",
+                            "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                            "item/Creación": "@triggerBody()?['Created']",
+                            "item/Respuesta": "@triggerBody()?['Modified']",
+                            "item/Gestor": "@triggerBody()?['Editor/DisplayName']",
+                            "item/Estado": "@triggerBody()?['Estado/Value']",
+                            "item/Condición": "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                            "item/Situación solicitud": "@triggerBody()?['Situaci_x00f3_nSolicitud']"
+                          },
+                          "host": {
+                            "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                            "connectionName": "shared_excelonlinebusiness",
+                            "operationId": "AddRowV2"
+                          },
+                          "authentication": "@parameters('$authentication')"
+                        }
+                      }
+                    }
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@triggerBody()?['Estado/Value']",
+                          "Aprobado"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                }
+              },
+              "else": {
+                "actions": {
+                  "Agregar_una_fila_a_interacción_1": {
+                    "metadata": {
+                      "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                      "tableId": "{2311D215-F21D-4034-9DD9-EBF3F5BADE3D}"
+                    },
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                        "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                        "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                        "table": "{2311D215-F21D-4034-9DD9-EBF3F5BADE3D}",
+                        "dateTimeFormat": "ISO 8601",
+                        "item/ID": "GDC@{triggerBody()?['ID']}",
+                        "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                        "item/Creación": "@triggerBody()?['Created']",
+                        "item/Respuesta": "@triggerBody()?['Modified']",
+                        "item/Gestor": "@triggerBody()?['Editor/DisplayName']",
+                        "item/Estado": "@triggerBody()?['Estado/Value']",
+                        "item/Condición": "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                        "item/Situación solicitud": "@triggerBody()?['Situaci_x00f3_nSolicitud']"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                        "connectionName": "shared_excelonlinebusiness",
+                        "operationId": "AddRowV2"
+                      },
+                      "authentication": "@parameters('$authentication')"
+                    }
+                  }
+                }
+              },
+              "expression": {
+                "or": [
+                  {
+                    "not": {
+                      "equals": [
+                        "@triggerBody()?['Area/Value']",
+                        "Representación Externa"
+                      ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@triggerBody()?['Area/Value']",
+                        "Reconsideración"
+                      ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@triggerBody()?['Area/Value']",
+                        "Gerencia de Medianos y Pequeños Contribuyentes"
+                      ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@triggerBody()?['Area/Value']",
+                        "Gerencia de Regímenes Especiales"
+                      ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "@triggerBody()?['Area/Value']",
+                        "Gerencia de Cobranza"
+                      ]
+                    }
+                  },
+                  {
+                    "not": {
+                      "equals": [
+                        "",
+                        ""
+                      ]
+                    }
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Enumerar_las_filas_de_una_tabla": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {
+              "Agregar_una_fila_a_interacción": {
+                "metadata": {
+                  "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                  "tableId": "{2311D215-F21D-4034-9DD9-EBF3F5BADE3D}"
+                },
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                    "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                    "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                    "table": "{2311D215-F21D-4034-9DD9-EBF3F5BADE3D}",
+                    "dateTimeFormat": "ISO 8601",
+                    "item/ID": "GDC@{triggerBody()?['ID']}",
+                    "item/Solicitud": "@triggerBody()?['Solicitud/Value']",
+                    "item/Creación": "@triggerBody()?['Created']",
+                    "item/Respuesta": "@triggerBody()?['Modified']",
+                    "item/Gestor": "@triggerBody()?['Editor/DisplayName']",
+                    "item/Estado": "@triggerBody()?['Estado/Value']",
+                    "item/Condición": "@triggerBody()?['Tipodeaprobaci_x00f3_n_x002e_/Value']",
+                    "item/Situación solicitud": "@triggerBody()?['Situaci_x00f3_nSolicitud']"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                    "connectionName": "shared_excelonlinebusiness",
+                    "operationId": "AddRowV2"
+                  },
+                  "authentication": "@parameters('$authentication')"
+                }
+              }
+            }
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@length(outputs('Enumerar_las_filas_de_una_tabla')?['body/value'])",
+                  0
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

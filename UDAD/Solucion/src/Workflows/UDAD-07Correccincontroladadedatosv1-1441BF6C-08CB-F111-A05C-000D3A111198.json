@@ -1,0 +1,596 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_2bf0c"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_teams": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_2b3e3"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "splitOn": "@triggerBody()['rows']",
+          "type": "Request",
+          "kind": "ApiConnection",
+          "inputs": {
+            "operationId": "GetItemHybridTriggerSchema",
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "703c3ca4-e74b-40e1-8419-1fb69be74872"
+            },
+            "schema": {
+              "type": "object",
+              "properties": {
+                "rows": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "text": {
+                        "description": "Introduzca su entrada",
+                        "title": "Nuevo número de documento",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "text_1": {
+                        "description": "Introduzca su entrada",
+                        "title": "Nuevo RNC o cédula",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "text_2": {
+                        "description": "Introduzca su entrada",
+                        "title": "Nueva razón social",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "text_3": {
+                        "description": "Introduzca su entrada",
+                        "title": "Nueva área de procedencia",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "text_4": {
+                        "description": "Introduzca su entrada",
+                        "title": "Nuevo tipo documental",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "text_5": {
+                        "description": "Introduzca su entrada",
+                        "title": "Motivo de la corrección",
+                        "type": "string",
+                        "x-ms-content-hint": "TEXT",
+                        "x-ms-dynamically-added": true
+                      },
+                      "entity": {
+                        "properties": {
+                          "ID": {
+                            "title": "ID",
+                            "type": "integer",
+                            "format": "int64"
+                          }
+                        },
+                        "type": "object",
+                        "required": []
+                      }
+                    }
+                  }
+                }
+              },
+              "required": [
+                "rows"
+              ]
+            },
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['shared_sharepointonline']['connectionId']"
+              }
+            }
+          }
+        }
+      },
+      "actions": {
+        "Obtener_documento_seleccionado_en_Preparación": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+              "id": "@triggerBody()?['entity']['ID']"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItem"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Condición_-_Existe_información_para_corregir": {
+          "actions": {
+            "Valor_final_-_Número_de_documento": {
+              "type": "Compose",
+              "inputs": "@if(empty(trim(coalesce(triggerBody()?['text'],''))),outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Title'],trim(triggerBody()?['text']))"
+            },
+            "Valor_final_-_RNC_o_cédula": {
+              "runAfter": {
+                "Valor_final_-_Número_de_documento": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Compose",
+              "inputs": "@if(empty(trim(coalesce(triggerBody()?['text_1'],''))),outputs('Obtener_documento_seleccionado_en_Preparación')?['body/RNC'],trim(triggerBody()?['text_1']))"
+            },
+            "Valor_final_-_Razón_social": {
+              "runAfter": {
+                "Valor_final_-_RNC_o_cédula": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Compose",
+              "inputs": "@if(empty(trim(coalesce(triggerBody()?['text_2'],''))),outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Razon_Social'],trim(triggerBody()?['text_2']))"
+            },
+            "Valor_final_-_Área_de_procedencia": {
+              "runAfter": {
+                "Valor_final_-_Razón_social": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Compose",
+              "inputs": "@if(empty(trim(coalesce(triggerBody()?['text_3'],''))),outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Area_Procedencia'],trim(triggerBody()?['text_3']))"
+            },
+            "Valor_final_-_Tipo_documental": {
+              "runAfter": {
+                "Valor_final_-_Área_de_procedencia": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Compose",
+              "inputs": "@if(empty(trim(coalesce(triggerBody()?['text_4'],''))),outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Tipo_Documento'],trim(triggerBody()?['text_4']))"
+            },
+            "Buscar_documento_relacionado_en_Digitalización": {
+              "runAfter": {
+                "Valor_final_-_Tipo_documental": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                  "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+                  "$filter": "@concat('No_Caja eq ''',replace(outputs('Obtener_documento_seleccionado_en_Preparación')?['body/No_Caja'],'''',''''''),''' and Orden eq ',string(outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Orden']))",
+                  "$top": 2
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "GetItems"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Buscar_documento_relacionado_en_Calidad": {
+              "runAfter": {
+                "Buscar_documento_relacionado_en_Digitalización": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                  "table": "4e0c3969-3f15-4c08-9b51-d7bd81462355",
+                  "$filter": "@concat('No_Caja eq ''',replace(outputs('Obtener_documento_seleccionado_en_Preparación')?['body/No_Caja'],'''',''''''),''' and Orden eq ',string(outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Orden']))",
+                  "$top": 2
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "GetItems"
+                },
+                "authentication": "@parameters('$authentication')"
+              }
+            },
+            "Condición_-_Clave_Caja_y_Orden_válida": {
+              "actions": {
+                "Actualizar_datos_corregidos_en_Preparación": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                      "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                      "id": "@outputs('Obtener_documento_seleccionado_en_Preparación')?['body/ID']",
+                      "item/Title": "@outputs('Valor_final_-_Número_de_documento')",
+                      "item/No_Caja": "@outputs('Obtener_documento_seleccionado_en_Preparación')?['body/No_Caja']",
+                      "item/Orden": "@outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Orden']",
+                      "item/Area_Procedencia": "@outputs('Valor_final_-_Área_de_procedencia')",
+                      "item/Tipo_Documento": "@outputs('Valor_final_-_Tipo_documental')",
+                      "item/Razon_Social": "@outputs('Valor_final_-_Razón_social')",
+                      "item/RNC": "@outputs('Valor_final_-_RNC_o_cédula')",
+                      "item/Prioridad/Value": "@outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Prioridad/Value']",
+                      "item/Estado/Value": "@outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Estado/Value']"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "PatchItem"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Condición_-_Documento_existe_en_Digitalización": {
+                  "actions": {
+                    "Actualizar_datos_corregidos_en_Digitalización": {
+                      "runAfter": {
+                        "Conservar_errores_actuales_de_Digitalización": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+                          "id": "@first(outputs('Buscar_documento_relacionado_en_Digitalización')?['body/value'])?['ID']",
+                          "item/No_Caja": "@first(outputs('Buscar_documento_relacionado_en_Digitalización')?['body/value'])?['No_Caja']",
+                          "item/Orden": "@first(outputs('Buscar_documento_relacionado_en_Digitalización')?['body/value'])?['Orden']",
+                          "item/Area_Procedencia": "@outputs('Valor_final_-_Área_de_procedencia')",
+                          "item/Tipo_documento": "@outputs('Valor_final_-_Tipo_documental')",
+                          "item/Razon_Social": "@outputs('Valor_final_-_Razón_social')",
+                          "item/RNC": "@outputs('Valor_final_-_RNC_o_cédula')",
+                          "item/Title": "@outputs('Valor_final_-_Número_de_documento')",
+                          "item/Prioridad/Value": "@first(outputs('Buscar_documento_relacionado_en_Digitalización')?['body/value'])?['Prioridad']?['Value']",
+                          "item/Estado/Value": "@first(outputs('Buscar_documento_relacionado_en_Digitalización')?['body/value'])?['Estado']?['Value']",
+                          "item/Tipo_Error": "@body('Conservar_errores_actuales_de_Digitalización')",
+                          "item/Planner_Task_ID": "@first(outputs('Buscar_documento_relacionado_en_Digitalización')?['body/value'])?['Planner_Task_ID']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "PatchItem"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Conservar_errores_actuales_de_Digitalización": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@coalesce(first(outputs('Buscar_documento_relacionado_en_Digitalización')?['body/value'])?['Tipo_Error'],json('[]'))",
+                        "select": {
+                          "Value": "@item()?['Value']"
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Actualizar_datos_corregidos_en_Preparación": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@length(outputs('Buscar_documento_relacionado_en_Digitalización')?['body/value'])",
+                          1
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                },
+                "Condición_-_Documento_existe_en_Calidad": {
+                  "actions": {
+                    "Conservar_errores_actuales_de_Calidad": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@coalesce(\r\n    first(\r\n        outputs('Buscar_documento_relacionado_en_Calidad')?['body/value']\r\n    )?['Tipo_Error'],\r\n    json('[]')\r\n)",
+                        "select": {
+                          "Value": "@item()?['Value']"
+                        }
+                      }
+                    },
+                    "Actualizar_datos_corregidos_en_Calidad": {
+                      "runAfter": {
+                        "Conservar_errores_actuales_de_Calidad": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "4e0c3969-3f15-4c08-9b51-d7bd81462355",
+                          "id": "@first(\r\n    outputs('Buscar_documento_relacionado_en_Calidad')?['body/value']\r\n)?['ID']",
+                          "item/No_Caja": "@first(\r\n    outputs('Buscar_documento_relacionado_en_Calidad')?['body/value']\r\n)?['No_Caja']",
+                          "item/Orden": "@first(\r\n    outputs('Buscar_documento_relacionado_en_Calidad')?['body/value']\r\n)?['Orden']",
+                          "item/Area_Procedencia": "@outputs('Valor_final_-_Área_de_procedencia')",
+                          "item/Tipo_Documento": "@outputs('Valor_final_-_Tipo_documental')",
+                          "item/Razon_Social": "@outputs('Valor_final_-_Razón_social')",
+                          "item/RNC": "@outputs('Valor_final_-_RNC_o_cédula')",
+                          "item/Tipo_Error": "@body('Conservar_errores_actuales_de_Calidad')",
+                          "item/Title": "@outputs('Valor_final_-_Número_de_documento')",
+                          "item/Prioridad/Value": "@first(\r\n    outputs('Buscar_documento_relacionado_en_Calidad')?['body/value']\r\n)?['Prioridad']?['Value']",
+                          "item/Estado/Value": "@first(\r\n    outputs('Buscar_documento_relacionado_en_Calidad')?['body/value']\r\n)?['Estado']?['Value']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "PatchItem"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Condición_-_Documento_existe_en_Digitalización": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@length(outputs('Buscar_documento_relacionado_en_Calidad')?['body/value'])",
+                          1
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                },
+                "Resultado_actualización_Digitalización": {
+                  "runAfter": {
+                    "Resultado_actualización_Preparación": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Compose",
+                  "inputs": "@if(\r\n    equals(\r\n        length(\r\n            outputs('Buscar_documento_relacionado_en_Digitalización')?['body/value']\r\n        ),\r\n        1\r\n    ),\r\n    'Digitalización',\r\n    ''\r\n)"
+                },
+                "Resultado_actualización_Preparación": {
+                  "runAfter": {
+                    "Condición_-_Documento_existe_en_Calidad": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Compose",
+                  "inputs": "Preparación"
+                },
+                "Resultado_actualización_Calidad": {
+                  "runAfter": {
+                    "Resultado_actualización_Digitalización": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Compose",
+                  "inputs": "@if(\r\n    equals(\r\n        length(\r\n            outputs('Buscar_documento_relacionado_en_Calidad')?['body/value']\r\n        ),\r\n        1\r\n    ),\r\n    'Control de Calidad',\r\n    ''\r\n)"
+                },
+                "Notificar_corrección_controlada_completada": {
+                  "runAfter": {
+                    "Resultado_actualización_Calidad": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "poster": "User",
+                      "location": "Channel",
+                      "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                      "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                      "body/messageBody": "<p class=\"editor-paragraph\"><strong>CORRECCIÓN CONTROLADA DE DATOS COMPLETADA</strong><br><br><strong>Caja:</strong> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/No_Caja']}<br><strong>Orden:</strong> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Orden']}<br><br><strong>Número documental anterior:</strong> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Title']}<br><strong>Número documental actualizado:</strong> @{outputs('Valor_final_-_Número_de_documento')}<br><br><strong>RNC o cédula anterior:</strong> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/RNC']}<br><strong>RNC o cédula actualizado:</strong> @{outputs('Valor_final_-_RNC_o_cédula')}<br><br><strong>Razón social anterior:</strong> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Razon_Social']}<br><strong>Razón social actualizada:</strong> @{outputs('Valor_final_-_Razón_social')}<br><br><strong>Área de procedencia anterior:</strong> @{string(outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Area_Procedencia'])}<br><strong>Área de procedencia actualizada:</strong> @{string(outputs('Valor_final_-_Área_de_procedencia'))}<br><br><strong>Tipo documental anterior:</strong> @{string(outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Tipo_Documento'])}<br><strong>Tipo documental actualizado:</strong> @{string(outputs('Valor_final_-_Tipo_documental'))}<br><br><strong>Listas actualizadas:</strong><br>• @{outputs('Resultado_actualización_Preparación')}@{if(empty(outputs('Resultado_actualización_Digitalización')),'',concat('<br>• ',outputs('Resultado_actualización_Digitalización')))}@{if(empty(outputs('Resultado_actualización_Calidad')),'',concat('<br>• ',outputs('Resultado_actualización_Calidad')))}<br><br><strong>Motivo de la corrección:</strong> @{triggerBody()?['text_5']}<br><br>No se modificaron el número de caja, el orden, la prioridad, el estado, los tipos de error ni la información de Planner.</p>"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                      "connectionName": "shared_teams",
+                      "operationId": "PostMessageToConversation"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Notificar_fallo_de_corrección_en_Preparación": {
+                  "runAfter": {
+                    "Actualizar_datos_corregidos_en_Preparación": [
+                      "TimedOut",
+                      "Failed"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "poster": "User",
+                      "location": "Channel",
+                      "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                      "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                      "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ERROR EN CORRECCIÓN CONTROLADA DE DATOS</strong></b><br><br><b><strong class=\"editor-text-bold\">Etapa que falló: </strong></b>Preparación<br><b><strong class=\"editor-text-bold\">Caja:</strong></b> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/No_Caja']}<br><b><strong class=\"editor-text-bold\">Orden:</strong></b> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Orden']}<br><b><strong class=\"editor-text-bold\">Documento original:</strong></b> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Title']}<br><br>No fue posible completar la corrección en una o más listas.<br><br>La información podría haber sido actualizada parcialmente. Se requiere revisar Preparación utilizando la combinación de caja y orden.<br><br><b><strong class=\"editor-text-bold\">Motivo indicado:</strong></b> @{triggerBody()?['text_5']}<br><br>Se requiere revisión técnica inmediata.</p>"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                      "connectionName": "shared_teams",
+                      "operationId": "PostMessageToConversation"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Notificar_fallo_de_corrección_en_Digitalización": {
+                  "runAfter": {
+                    "Condición_-_Documento_existe_en_Digitalización": [
+                      "TimedOut",
+                      "Failed"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "poster": "User",
+                      "location": "Channel",
+                      "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                      "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                      "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ERROR EN CORRECCIÓN CONTROLADA DE DATOS</strong></b><br><br><b><strong class=\"editor-text-bold\">Etapa que falló: </strong></b>Digitalización<br><b><strong class=\"editor-text-bold\">Caja:</strong></b> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/No_Caja']}<br><b><strong class=\"editor-text-bold\">Orden:</strong></b> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Orden']}<br><b><strong class=\"editor-text-bold\">Documento original:</strong></b> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Title']}<br><br>No fue posible completar la corrección en una o más listas.<br><br>La información podría haber sido actualizada parcialmente. Se requiere revisar Digitalización utilizando la combinación de caja y orden.<br><br><b><strong class=\"editor-text-bold\">Motivo indicado:</strong></b> @{triggerBody()?['text_5']}<br><br>Se requiere revisión técnica inmediata.</p>"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                      "connectionName": "shared_teams",
+                      "operationId": "PostMessageToConversation"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                },
+                "Notificar_fallo_de_corrección_en_Calidad": {
+                  "runAfter": {
+                    "Condición_-_Documento_existe_en_Calidad": [
+                      "TimedOut",
+                      "Failed"
+                    ]
+                  },
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "poster": "User",
+                      "location": "Channel",
+                      "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                      "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                      "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ERROR EN CORRECCIÓN CONTROLADA DE DATOS</strong></b><br><br><b><strong class=\"editor-text-bold\">Etapa que falló: </strong></b>Control de Calidad<br><b><strong class=\"editor-text-bold\">Caja:</strong></b> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/No_Caja']}<br><b><strong class=\"editor-text-bold\">Orden:</strong></b> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Orden']}<br><b><strong class=\"editor-text-bold\">Documento original:</strong></b> @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Title']}<br><br>No fue posible completar la corrección en una o más listas.<br><br>La información podría haber sido actualizada parcialmente. Se requiere revisar Control de Calidad, utilizando la combinación de caja y orden.<br><br><b><strong class=\"editor-text-bold\">Motivo indicado:</strong></b> @{triggerBody()?['text_5']}<br><br>Se requiere revisión técnica inmediata.</p>"
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                      "connectionName": "shared_teams",
+                      "operationId": "PostMessageToConversation"
+                    },
+                    "authentication": "@parameters('$authentication')"
+                  }
+                }
+              },
+              "runAfter": {
+                "Buscar_documento_relacionado_en_Calidad": [
+                  "Succeeded"
+                ]
+              },
+              "else": {
+                "actions": {
+                  "Notificar_corrección_detenida_por_duplicidad": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "parameters": {
+                        "poster": "User",
+                        "location": "Channel",
+                        "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                        "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                        "body/messageBody": "<p class=\"editor-paragraph\">CORRECCIÓN DETENIDA POR DUPLICIDAD<br><br>Caja: @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/No_Caja']}<br>Número del documento: @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Title']}<br>Orden: @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Orden']}<br><br>Se localizaron varios documentos con la misma combinación de caja y orden en Digitalización o Control de Calidad.<br><br>No se realizó ninguna modificación para evitar actualizar el documento incorrecto.<br><br>Motivo de la solicitud: @{triggerBody()?['text_5']}<br><br>Se requiere revisión técnica.</p>"
+                      },
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                        "connectionName": "shared_teams",
+                        "operationId": "PostMessageToConversation"
+                      },
+                      "authentication": "@parameters('$authentication')"
+                    }
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "lessOrEquals": [
+                      "@length(outputs('Buscar_documento_relacionado_en_Digitalización')?['body/value'])",
+                      1
+                    ]
+                  },
+                  {
+                    "lessOrEquals": [
+                      "@length(outputs('Buscar_documento_relacionado_en_Calidad')?['body/value'])",
+                      1
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Obtener_documento_seleccionado_en_Preparación": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {
+              "Notificar_solicitud_de_corrección_vacía": {
+                "type": "OpenApiConnection",
+                "inputs": {
+                  "parameters": {
+                    "poster": "User",
+                    "location": "Channel",
+                    "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                    "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                    "body/messageBody": "<p class=\"editor-paragraph\">SOLICITUD DE CORRECCIÓN SIN CAMBIOS<br><br>Caja: @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/No_Caja']}</p><p class=\"editor-paragraph\">Número del documento: @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Title']}<br>Orden: @{outputs('Obtener_documento_seleccionado_en_Preparación')?['body/Orden']}<br><br>No se indicó ningún valor nuevo para corregir.<br><br>La solicitud no realizó modificaciones en Preparación, Digitalización ni Control de Calidad.<br><br>Motivo indicado: @{triggerBody()?['text_5']}</p>"
+                  },
+                  "host": {
+                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                    "connectionName": "shared_teams",
+                    "operationId": "PostMessageToConversation"
+                  },
+                  "authentication": "@parameters('$authentication')"
+                }
+              }
+            }
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@or(not(empty(trim(coalesce(triggerBody()?['text'],'')))),not(empty(trim(coalesce(triggerBody()?['text_1'],'')))),not(empty(trim(coalesce(triggerBody()?['text_2'],'')))),not(empty(trim(coalesce(triggerBody()?['text_3'],'')))),not(empty(trim(coalesce(triggerBody()?['text_4'],'')))))",
+                  "@true"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

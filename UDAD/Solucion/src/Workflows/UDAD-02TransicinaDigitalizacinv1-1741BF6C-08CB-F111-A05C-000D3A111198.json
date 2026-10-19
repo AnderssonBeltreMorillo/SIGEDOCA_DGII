@@ -1,0 +1,1369 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_2bf0c"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_teams": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_2b3e3"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_278ab"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_o_se_modifica_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "703c3ca4-e74b-40e1-8419-1fb69be74872"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnUpdatedItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          },
+          "conditions": [
+            {
+              "expression": "@or(     equals(triggerBody()?['Estado/Value'], 'Preparado'),     equals(triggerBody()?['Estado/Value'], 'No recibido'),     equals(triggerBody()?['Estado/Value'], 'Pendiente') )"
+            }
+          ]
+        }
+      },
+      "actions": {
+        "Obtener_cambios_del_documento_en_Preparación": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+              "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+              "id": "@triggerBody()?['ID']",
+              "since": "@triggerBody()?['{TriggerWindowStartToken}']",
+              "includeDrafts": false,
+              "until": "@triggerBody()?['{TriggerWindowEndToken}']"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItemChanges"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Condición_-_Estado_fue_modificado": {
+          "actions": {
+            "Evaluar_nuevo_Estado": {
+              "cases": {
+                "Preparado": {
+                  "case": "Preparado",
+                  "actions": {
+                    "Buscar_documento_en_Digitalización": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+                          "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),''' and Orden eq ',string(triggerBody()?['Orden']))",
+                          "$top": 2
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "GetItems"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Condición_Documento_no_transferido": {
+                      "actions": {
+                        "Crear_elemento_en_Digitalización": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                              "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+                              "item/No_Caja": "@triggerBody()?['No_Caja']",
+                              "item/Orden": "@triggerBody()?['Orden']",
+                              "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']",
+                              "item/Tipo_documento": "@triggerBody()?['Tipo_Documento']",
+                              "item/Razon_Social": "@triggerBody()?['Razon_Social']",
+                              "item/RNC": "@triggerBody()?['RNC']",
+                              "item/Title": "@triggerBody()?['Title']",
+                              "item/Prioridad/Value": "@triggerBody()?['Prioridad']?['Value']",
+                              "item/Estado/Value": "Pendiente"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "PostItem"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        },
+                        "Obtener_documentos_caja_Preparación": {
+                          "runAfter": {
+                            "Condición_-_Caja_recibida_localizada_para_Preparado": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                              "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                              "$filter": "@concat(\r\n    'No_Caja eq ''',\r\n    replace(triggerBody()?['No_Caja'], '''', ''''''),\r\n    ''''\r\n)"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "GetItems"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          },
+                          "runtimeConfiguration": {
+                            "paginationPolicy": {
+                              "minimumItemCount": 5000
+                            }
+                          }
+                        },
+                        "Obtener_documentos_caja_Digitalización": {
+                          "runAfter": {
+                            "Filtrar_documentos_vigentes_de_Preparación": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                              "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+                              "$filter": "@concat(\r\n    'No_Caja eq ''',\r\n    replace(triggerBody()?['No_Caja'], '''', ''''''),\r\n    ''''\r\n)"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "GetItems"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          },
+                          "runtimeConfiguration": {
+                            "paginationPolicy": {
+                              "minimumItemCount": 5000
+                            }
+                          }
+                        },
+                        "Condición_Caja_transferida_completamente": {
+                          "actions": {
+                            "Publicar_mensaje_en_un_chat_o_canal": {
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "poster": "User",
+                                  "location": "Channel",
+                                  "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                  "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                  "body/messageBody": "<p class=\"editor-paragraph\">Preparación física completada<br><br>La preparación de la caja @{triggerBody()?['No_Caja']} finalizó correctamente.<br><br>Documentos transferidos a Digitalización: @{length(\r\n    outputs('Obtener_documentos_caja_Digitalización')?['body/value']\r\n)}<br>Área de procedencia: @{triggerBody()?['Area_Procedencia']}<br>Tipo de documento: @{triggerBody()?['Tipo_Documento']}</p><p class=\"editor-paragraph\">Auxiliar de Archivo: @{triggerBody()?['Editor/DisplayName']}<br><br>Los documentos ya están disponibles para el proceso de digitalización.</p>"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                  "connectionName": "shared_teams",
+                                  "operationId": "PostMessageToConversation"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                              }
+                            }
+                          },
+                          "runAfter": {
+                            "Obtener_último_documento_transferido": [
+                              "Succeeded"
+                            ]
+                          },
+                          "else": {
+                            "actions": {}
+                          },
+                          "expression": {
+                            "and": [
+                              {
+                                "greater": [
+                                  "@length(body('Filtrar_documentos_vigentes_de_Preparación'))",
+                                  0
+                                ]
+                              },
+                              {
+                                "equals": [
+                                  "@length(body('Filtrar_documentos_vigentes_de_Preparación'))",
+                                  "@length(outputs('Obtener_documentos_caja_Digitalización')?['body/value'])"
+                                ]
+                              },
+                              {
+                                "equals": [
+                                  "@int(\r\n    outputs('Crear_elemento_en_Digitalización')?['body/ID']\r\n)",
+                                  "@int(\r\n    first(\r\n        outputs('Obtener_último_documento_transferido')?['body/value']\r\n    )?['ID']\r\n)"
+                                ]
+                              }
+                            ]
+                          },
+                          "type": "If"
+                        },
+                        "Obtener_último_documento_transferido": {
+                          "runAfter": {
+                            "Obtener_documentos_caja_Digitalización": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                              "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+                              "$filter": "@concat(\r\n    'No_Caja eq ''',\r\n    replace(triggerBody()?['No_Caja'], '''', ''''''),\r\n    ''''\r\n)",
+                              "$orderby": "ID desc",
+                              "$top": 1
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "GetItems"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        },
+                        "Filtrar_documentos_vigentes_de_Preparación": {
+                          "runAfter": {
+                            "Obtener_documentos_caja_Preparación": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "Query",
+                          "inputs": {
+                            "from": "@outputs('Obtener_documentos_caja_Preparación')?['body/value']",
+                            "where": "@not(equals(item()?['Estado']?['Value'],'No recibido'))"
+                          }
+                        },
+                        "Preparado_-_Obtener_documentos_para_sincronizar_cantidad": {
+                          "runAfter": {
+                            "Condición_-_Registro_PREP_no_existe": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                              "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                              "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),'''')"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "GetItems"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          },
+                          "runtimeConfiguration": {
+                            "paginationPolicy": {
+                              "minimumItemCount": 5000
+                            }
+                          }
+                        },
+                        "Preparado_-_Filtrar_documentos_vigentes": {
+                          "runAfter": {
+                            "Preparado_-_Obtener_documentos_para_sincronizar_cantidad": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "Query",
+                          "inputs": {
+                            "from": "@outputs('Preparado_-_Obtener_documentos_para_sincronizar_cantidad')?['body/value']",
+                            "where": "@not(equals(item()?['Estado']?['Value'],'No recibido'))"
+                          }
+                        },
+                        "Preparado_-_Calcular_cantidad_vigente": {
+                          "runAfter": {
+                            "Preparado_-_Filtrar_documentos_vigentes": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "Compose",
+                          "inputs": "@length(body('Preparado_-_Filtrar_documentos_vigentes'))"
+                        },
+                        "Preparado_-_Buscar_caja_en_Excel": {
+                          "runAfter": {
+                            "Preparado_-_Calcular_cantidad_vigente": [
+                              "Succeeded"
+                            ]
+                          },
+                          "metadata": {
+                            "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                            "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                              "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                              "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                              "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),'''')"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "GetItems"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        },
+                        "Preparado_-_Filtrar_evento_Caja_recibida": {
+                          "runAfter": {
+                            "Preparado_-_Buscar_caja_en_Excel": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "Query",
+                          "inputs": {
+                            "from": "@outputs('Preparado_-_Buscar_caja_en_Excel')?['body/value']",
+                            "where": "@equals(item()?['Tipo_Evento'],'Caja recibida')"
+                          }
+                        },
+                        "Condición_-_Caja_recibida_localizada_para_Preparado": {
+                          "actions": {
+                            "Preparado_-_Actualizar_cantidad_vigente_en_Excel": {
+                              "metadata": {
+                                "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                                "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                              },
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                                  "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                                  "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                                  "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                                  "idColumn": "Evento_ID",
+                                  "id": "@first(body('Preparado_-_Filtrar_evento_Caja_recibida'))?['Evento_ID']",
+                                  "item/Cantidad_Documentos": "@outputs('Preparado_-_Calcular_cantidad_vigente')"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                                  "connectionName": "shared_excelonlinebusiness",
+                                  "operationId": "PatchItem"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                              }
+                            },
+                            "Notificar_fallo_al_actualizar_cantidad_por_documento_Preparado": {
+                              "runAfter": {
+                                "Preparado_-_Actualizar_cantidad_vigente_en_Excel": [
+                                  "Failed",
+                                  "TimedOut"
+                                ]
+                              },
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "poster": "User",
+                                  "location": "Channel",
+                                  "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                  "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                  "body/messageBody": "<p class=\"editor-paragraph\"><strong>ERROR AL ACTUALIZAR LA CANTIDAD DE LA CAJA</strong><br><br><strong>Caja:</strong> @{triggerBody()?['No_Caja']}<br><strong>Número de documento:</strong> @{triggerBody()?['Title']}<br><strong>Orden:</strong> @{triggerBody()?['Orden']}<br><strong>Cantidad vigente calculada:</strong> @{outputs('Preparado_-_Calcular_cantidad_vigente')}<br><br>Se localizó la fila “Caja recibida”, pero no fue posible actualizar Cantidad_Documentos.<br><br>El documento ya fue transferido a Digitalización. Se requiere revisión técnica inmediata.</p>"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                  "connectionName": "shared_teams",
+                                  "operationId": "PostMessageToConversation"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                              }
+                            }
+                          },
+                          "runAfter": {
+                            "Preparado_-_Filtrar_evento_Caja_recibida": [
+                              "Succeeded"
+                            ]
+                          },
+                          "else": {
+                            "actions": {
+                              "Notificar_error_al_sincronizar_cantidad_por_documento_Preparado": {
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "parameters": {
+                                    "poster": "User",
+                                    "location": "Channel",
+                                    "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                    "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                    "body/messageBody": "<p class=\"editor-paragraph\"><strong>ERROR AL SINCRONIZAR LA CANTIDAD DE LA CAJA</strong><br><br><strong>Caja:</strong> @{triggerBody()?['No_Caja']}<br><strong>Número de documento:</strong> @{triggerBody()?['Title']}<br><strong>Orden:</strong> @{triggerBody()?['Orden']}<br><strong>Cantidad vigente calculada:</strong> @{outputs('Preparado_-_Calcular_cantidad_vigente')}<br><br>El documento fue transferido a Digitalización, pero no se localizó exactamente una fila “Caja recibida” en Excel.<br><br>No fue posible actualizar Cantidad_Documentos. Se requiere revisión técnica inmediata.</p>"
+                                  },
+                                  "host": {
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                    "connectionName": "shared_teams",
+                                    "operationId": "PostMessageToConversation"
+                                  },
+                                  "authentication": "@parameters('$authentication')"
+                                }
+                              }
+                            }
+                          },
+                          "expression": {
+                            "and": [
+                              {
+                                "equals": [
+                                  "@length(body('Preparado_-_Filtrar_evento_Caja_recibida'))",
+                                  1
+                                ]
+                              }
+                            ]
+                          },
+                          "type": "If"
+                        },
+                        "Buscar_registro_PREP_existente_en_Excel": {
+                          "runAfter": {
+                            "Crear_elemento_en_Digitalización": [
+                              "Succeeded"
+                            ]
+                          },
+                          "metadata": {
+                            "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                            "tableId": "{6EE309DC-91D5-4B2B-8C5C-E4DCA9F6E1C7}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                              "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                              "table": "{6EE309DC-91D5-4B2B-8C5C-E4DCA9F6E1C7}",
+                              "$filter": "@concat(\r\n    'Evento_ID eq ''PREP|',\r\n    string(triggerBody()?['ID']),\r\n    ''''\r\n)",
+                              "$top": 2
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "GetItems"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        },
+                        "Condición_-_Registro_PREP_no_existe": {
+                          "actions": {
+                            "Registrar_documento_preparado_en_Excel": {
+                              "metadata": {
+                                "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                                "tableId": "{6EE309DC-91D5-4B2B-8C5C-E4DCA9F6E1C7}"
+                              },
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                                  "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                                  "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                                  "table": "{6EE309DC-91D5-4B2B-8C5C-E4DCA9F6E1C7}",
+                                  "item/Evento_ID": "@concat(\r\n    'PREP|',\r\n    string(triggerBody()?['ID'])\r\n)",
+                                  "item/Fecha_Evento": "@convertTimeZone(\r\n    triggerBody()?['Modified'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                                  "item/Fecha_Creacion": "@convertTimeZone(\r\n    triggerBody()?['Created'],\r\n    'UTC',\r\n    'SA Western Standard Time',\r\n    'yyyy-MM-dd HH:mm'\r\n)",
+                                  "item/Duracion_Minutos": "@div(\r\n    float(\r\n        sub(\r\n            ticks(triggerBody()?['Modified']),\r\n            ticks(triggerBody()?['Created'])\r\n        )\r\n    ),\r\n    600000000\r\n)",
+                                  "item/ID_SharePoint": "@triggerBody()?['ID']",
+                                  "item/No_Caja": "@triggerBody()?['No_Caja']",
+                                  "item/No_Documento": "@triggerBody()?['Title']\r\n",
+                                  "item/Orden": "@triggerBody()?['Orden']",
+                                  "item/RNC": "@triggerBody()?['RNC']",
+                                  "item/Razon_Social": "@triggerBody()?['Razon_Social']",
+                                  "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']",
+                                  "item/Tipo_Documento": "@triggerBody()?['Tipo_Documento']",
+                                  "item/Prioridad": "@triggerBody()?['Prioridad']?['Value']",
+                                  "item/Estado": "@triggerBody()?['Estado']?['Value']",
+                                  "item/Usuario_Email": "@triggerBody()?['Editor']?['Email']",
+                                  "item/Usuario_Nombre": "@triggerBody()?['Editor']?['DisplayName']",
+                                  "item/Tipo_Evento": "Documento preparado"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                                  "connectionName": "shared_excelonlinebusiness",
+                                  "operationId": "AddRowV2"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                              }
+                            }
+                          },
+                          "runAfter": {
+                            "Buscar_registro_PREP_existente_en_Excel": [
+                              "Succeeded"
+                            ]
+                          },
+                          "else": {
+                            "actions": {
+                              "Condición_-_Existe_un_solo_registro_PREP": {
+                                "actions": {},
+                                "else": {
+                                  "actions": {
+                                    "Notificar_duplicidad_de_evento_PREP": {
+                                      "type": "OpenApiConnection",
+                                      "inputs": {
+                                        "parameters": {
+                                          "poster": "User",
+                                          "location": "Channel",
+                                          "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                          "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                          "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">DUPLICIDAD DETECTADA EN EL REGISTRO DE PREPARACIÓN</strong></b><br><br><b><strong class=\"editor-text-bold\">Caja:</strong></b> @{triggerBody()?['No_Caja']}<br><b><strong class=\"editor-text-bold\">Número de documento:</strong></b> @{triggerBody()?['Title']}<br><b><strong class=\"editor-text-bold\">Orden:</strong></b> @{triggerBody()?['Orden']}<br><b><strong class=\"editor-text-bold\">ID de SharePoint:</strong></b> @{triggerBody()?['ID']}<br><b><strong class=\"editor-text-bold\">Evento esperado:</strong></b> PREP|@{triggerBody()?['ID']}<br><br>Se localizaron varios registros de “Documento preparado” con el mismo Evento_ID en Excel.<br><br>No se agregó otra fila. El documento ya fue creado en Digitalización, pero los registros duplicados existentes requieren revisión técnica.</p>"
+                                        },
+                                        "host": {
+                                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                          "connectionName": "shared_teams",
+                                          "operationId": "PostMessageToConversation"
+                                        },
+                                        "authentication": "@parameters('$authentication')"
+                                      }
+                                    }
+                                  }
+                                },
+                                "expression": {
+                                  "and": [
+                                    {
+                                      "equals": [
+                                        "@length(\r\n    outputs('Buscar_registro_PREP_existente_en_Excel')?['body/value']\r\n)",
+                                        1
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "type": "If"
+                              }
+                            }
+                          },
+                          "expression": {
+                            "and": [
+                              {
+                                "equals": [
+                                  "@length(\r\n    outputs('Buscar_registro_PREP_existente_en_Excel')?['body/value']\r\n)",
+                                  0
+                                ]
+                              }
+                            ]
+                          },
+                          "type": "If"
+                        }
+                      },
+                      "runAfter": {
+                        "Buscar_documento_en_Digitalización": [
+                          "Succeeded"
+                        ]
+                      },
+                      "else": {
+                        "actions": {
+                          "Condición_-_Existe_un_solo_documento_en_Digitalización": {
+                            "actions": {
+                              "Preparado_existente_-_Obtener_documentos_de_Preparación": {
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "parameters": {
+                                    "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                                    "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                                    "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),'''')"
+                                  },
+                                  "host": {
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                    "connectionName": "shared_sharepointonline",
+                                    "operationId": "GetItems"
+                                  },
+                                  "authentication": "@parameters('$authentication')"
+                                },
+                                "runtimeConfiguration": {
+                                  "paginationPolicy": {
+                                    "minimumItemCount": 5000
+                                  }
+                                }
+                              },
+                              "Preparado_existente_-_Filtrar_documentos_vigentes": {
+                                "runAfter": {
+                                  "Preparado_existente_-_Obtener_documentos_de_Preparación": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "type": "Query",
+                                "inputs": {
+                                  "from": "@outputs('Preparado_existente_-_Obtener_documentos_de_Preparación')?['body/value']",
+                                  "where": "@not(equals(item()?['Estado']?['Value'],'No recibido'))"
+                                }
+                              },
+                              "Preparado_existente_-_Calcular_cantidad_vigente": {
+                                "runAfter": {
+                                  "Preparado_existente_-_Filtrar_documentos_vigentes": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "type": "Compose",
+                                "inputs": "@length(body('Preparado_existente_-_Filtrar_documentos_vigentes'))"
+                              },
+                              "Preparado_existente_-_Buscar_caja_en_Excel": {
+                                "runAfter": {
+                                  "Preparado_existente_-_Calcular_cantidad_vigente": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "metadata": {
+                                  "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                                  "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                                },
+                                "type": "OpenApiConnection",
+                                "inputs": {
+                                  "parameters": {
+                                    "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                                    "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                                    "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                                    "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                                    "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),'''')"
+                                  },
+                                  "host": {
+                                    "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                                    "connectionName": "shared_excelonlinebusiness",
+                                    "operationId": "GetItems"
+                                  },
+                                  "authentication": "@parameters('$authentication')"
+                                }
+                              },
+                              "Preparado_existente_-_Filtrar_evento_Caja_recibida": {
+                                "runAfter": {
+                                  "Preparado_existente_-_Buscar_caja_en_Excel": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "type": "Query",
+                                "inputs": {
+                                  "from": "@outputs('Preparado_existente_-_Buscar_caja_en_Excel')?['body/value']",
+                                  "where": "@equals(item()?['Tipo_Evento'],'Caja recibida')"
+                                }
+                              },
+                              "Condición_-_Caja_recibida_localizada_para_Preparado_existente": {
+                                "actions": {
+                                  "Preparado_existente_-_Actualizar_cantidad_vigente": {
+                                    "metadata": {
+                                      "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                                      "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                                    },
+                                    "type": "OpenApiConnection",
+                                    "inputs": {
+                                      "parameters": {
+                                        "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                                        "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                                        "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                                        "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                                        "idColumn": "Evento_ID",
+                                        "id": "@first(body('Preparado_existente_-_Filtrar_evento_Caja_recibida'))?['Evento_ID']",
+                                        "item/Cantidad_Documentos": "@outputs('Preparado_existente_-_Calcular_cantidad_vigente')"
+                                      },
+                                      "host": {
+                                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                                        "connectionName": "shared_excelonlinebusiness",
+                                        "operationId": "PatchItem"
+                                      },
+                                      "authentication": "@parameters('$authentication')"
+                                    }
+                                  },
+                                  "Notificar_documento_preparado_ya_existente_en_Digitalización": {
+                                    "runAfter": {
+                                      "Preparado_existente_-_Actualizar_cantidad_vigente": [
+                                        "Succeeded"
+                                      ]
+                                    },
+                                    "type": "OpenApiConnection",
+                                    "inputs": {
+                                      "parameters": {
+                                        "poster": "User",
+                                        "location": "Channel",
+                                        "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                        "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                        "body/messageBody": "<p class=\"editor-paragraph\"><strong>DOCUMENTO REINTEGRADO Y YA EXISTENTE EN DIGITALIZACIÓN</strong><br><br><strong>Caja:</strong> @{triggerBody()?['No_Caja']}<br><strong>Número de documento:</strong> @{triggerBody()?['Title']}<br><strong>Orden:</strong> @{triggerBody()?['Orden']}<br><strong>Cantidad vigente actualizada:</strong> @{outputs('Preparado_existente_-_Calcular_cantidad_vigente')}<br><strong>Modificado por:</strong> @{triggerBody()?['Editor/DisplayName']}<br><br>El documento fue cambiado a estado “Preparado” y fue reintegrado a la cantidad vigente de la caja.<br><br>El documento ya existía en Digitalización, por lo que no se creó un registro adicional.</p>"
+                                      },
+                                      "host": {
+                                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                        "connectionName": "shared_teams",
+                                        "operationId": "PostMessageToConversation"
+                                      },
+                                      "authentication": "@parameters('$authentication')"
+                                    }
+                                  },
+                                  "Notificar_fallo_al_actualizar_Preparado_existente": {
+                                    "runAfter": {
+                                      "Preparado_existente_-_Actualizar_cantidad_vigente": [
+                                        "TimedOut",
+                                        "Failed"
+                                      ]
+                                    },
+                                    "type": "OpenApiConnection",
+                                    "inputs": {
+                                      "parameters": {
+                                        "poster": "User",
+                                        "location": "Channel",
+                                        "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                        "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                        "body/messageBody": "<p class=\"editor-paragraph\"><strong>ERROR AL ACTUALIZAR LA CANTIDAD DEL DOCUMENTO YA EXISTENTE</strong><br><br><strong>Caja:</strong> @{triggerBody()?['No_Caja']}<br><strong>Número de documento:</strong> @{triggerBody()?['Title']}<br><strong>Orden:</strong> @{triggerBody()?['Orden']}<br><strong>Cantidad vigente calculada:</strong> @{outputs('Preparado_existente_-_Calcular_cantidad_vigente')}<br><strong>Modificado por:</strong> @{triggerBody()?['Editor/DisplayName']}<br><br>El documento ya existe en Digitalización y no se creó un registro adicional.<br><br>Sin embargo, se localizó la fila “Caja recibida” y falló la actualización de Cantidad_Documentos.<br><br>Se requiere revisión técnica inmediata.</p>"
+                                      },
+                                      "host": {
+                                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                        "connectionName": "shared_teams",
+                                        "operationId": "PostMessageToConversation"
+                                      },
+                                      "authentication": "@parameters('$authentication')"
+                                    }
+                                  }
+                                },
+                                "runAfter": {
+                                  "Preparado_existente_-_Filtrar_evento_Caja_recibida": [
+                                    "Succeeded"
+                                  ]
+                                },
+                                "else": {
+                                  "actions": {
+                                    "Notificar_error_al_sincronizar_documento_Preparado_existente": {
+                                      "type": "OpenApiConnection",
+                                      "inputs": {
+                                        "parameters": {
+                                          "poster": "User",
+                                          "location": "Channel",
+                                          "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                          "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                          "body/messageBody": "<p class=\"editor-paragraph\"><strong>ERROR AL SINCRONIZAR DOCUMENTO YA EXISTENTE EN DIGITALIZACIÓN</strong><br><br><strong>Caja:</strong> @{triggerBody()?['No_Caja']}<br><strong>Número de documento:</strong> @{triggerBody()?['Title']}<br><strong>Orden:</strong> @{triggerBody()?['Orden']}<br><strong>Cantidad vigente calculada:</strong> @{outputs('Preparado_existente_-_Calcular_cantidad_vigente')}<br><strong>Modificado por:</strong> @{triggerBody()?['Editor/DisplayName']}<br><br>El documento fue cambiado a estado “Preparado” y ya existe en Digitalización, por lo que no se creó un registro adicional.<br><br>Sin embargo, no se localizó exactamente una fila “Caja recibida” en Excel y no fue posible actualizar Cantidad_Documentos.<br><br>Se requiere revisar la caja en tblCajas y confirmar que exista una sola fila con Tipo_Evento igual a “Caja recibida”.</p>"
+                                        },
+                                        "host": {
+                                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                          "connectionName": "shared_teams",
+                                          "operationId": "PostMessageToConversation"
+                                        },
+                                        "authentication": "@parameters('$authentication')"
+                                      }
+                                    }
+                                  }
+                                },
+                                "expression": {
+                                  "and": [
+                                    {
+                                      "equals": [
+                                        "@length(body('Preparado_existente_-_Filtrar_evento_Caja_recibida'))",
+                                        1
+                                      ]
+                                    }
+                                  ]
+                                },
+                                "type": "If"
+                              }
+                            },
+                            "else": {
+                              "actions": {
+                                "Notificar_duplicidad_de_documento_en_Digitalización": {
+                                  "type": "OpenApiConnection",
+                                  "inputs": {
+                                    "parameters": {
+                                      "poster": "User",
+                                      "location": "Channel",
+                                      "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                      "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                      "body/messageBody": "<p class=\"editor-paragraph\"><strong>PROCESO DETENIDO POR DUPLICIDAD EN DIGITALIZACIÓN</strong><br><br><strong>Caja:</strong> @{triggerBody()?['No_Caja']}<br><strong>Número de documento:</strong> @{triggerBody()?['Title']}<br><strong>Orden:</strong> @{triggerBody()?['Orden']}<br><strong>Registros localizados:</strong> @{length(outputs('Buscar_documento_en_Digitalización')?['body/value'])}<br><strong>Modificado por:</strong> @{triggerBody()?['Editor/DisplayName']}<br><br>Se localizó más de un documento con la misma combinación de caja y orden en Digitalización.<br><br>No se creó otro documento y no se actualizó automáticamente la cantidad de la caja para evitar procesar registros duplicados.<br><br>Se requiere revisar los documentos duplicados en Digitalización antes de continuar.</p>"
+                                    },
+                                    "host": {
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                      "connectionName": "shared_teams",
+                                      "operationId": "PostMessageToConversation"
+                                    },
+                                    "authentication": "@parameters('$authentication')"
+                                  }
+                                }
+                              }
+                            },
+                            "expression": {
+                              "and": [
+                                {
+                                  "equals": [
+                                    "@length(outputs('Buscar_documento_en_Digitalización')?['body/value'])",
+                                    1
+                                  ]
+                                }
+                              ]
+                            },
+                            "type": "If"
+                          }
+                        }
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@length(\r\n    outputs('Buscar_documento_en_Digitalización')?['body/value']\r\n)",
+                              0
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    }
+                  }
+                },
+                "No_recibido": {
+                  "case": "No recibido",
+                  "actions": {
+                    "No_recibido_-_Obtener_documentos_de_la_caja": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                          "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),'''')"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "GetItems"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      },
+                      "runtimeConfiguration": {
+                        "paginationPolicy": {
+                          "minimumItemCount": 5000
+                        }
+                      }
+                    },
+                    "No_recibido_-_Filtrar_documentos_vigentes": {
+                      "runAfter": {
+                        "No_recibido_-_Obtener_documentos_de_la_caja": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@outputs('No_recibido_-_Obtener_documentos_de_la_caja')?['body/value']",
+                        "where": "@not(equals(item()?['Estado']?['Value'],'No recibido'))"
+                      }
+                    },
+                    "No_recibido_-_Calcular_cantidad_vigente": {
+                      "runAfter": {
+                        "No_recibido_-_Filtrar_documentos_vigentes": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Compose",
+                      "inputs": "@length(body('No_recibido_-_Filtrar_documentos_vigentes'))"
+                    },
+                    "No_recibido_-_Buscar_caja_en_Excel": {
+                      "runAfter": {
+                        "No_recibido_-_Calcular_cantidad_vigente": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                        "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                          "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                          "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                          "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),'''')"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "GetItems"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "No_recibido_-_Filtrar_evento_Caja_recibida": {
+                      "runAfter": {
+                        "No_recibido_-_Buscar_caja_en_Excel": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@outputs('No_recibido_-_Buscar_caja_en_Excel')?['body/value']",
+                        "where": "@equals(item()?['Tipo_Evento'],'Caja recibida')"
+                      }
+                    },
+                    "Condición_-_Caja_recibida_localizada_para_No_recibido": {
+                      "actions": {
+                        "Actualizar_una_fila": {
+                          "metadata": {
+                            "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                            "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                              "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                              "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                              "idColumn": "Evento_ID",
+                              "id": "@first(body('No_recibido_-_Filtrar_evento_Caja_recibida'))?['Evento_ID']",
+                              "item/Cantidad_Documentos": "@outputs('No_recibido_-_Calcular_cantidad_vigente')"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "PatchItem"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        },
+                        "Registrar_documento_no_recibido_en_Excel": {
+                          "runAfter": {
+                            "Actualizar_una_fila": [
+                              "Succeeded"
+                            ]
+                          },
+                          "metadata": {
+                            "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                            "tableId": "{6EE309DC-91D5-4B2B-8C5C-E4DCA9F6E1C7}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                              "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                              "table": "{6EE309DC-91D5-4B2B-8C5C-E4DCA9F6E1C7}",
+                              "item/Evento_ID": "@concat('NO-REC|',string(triggerBody()?['ID']),'|',string(ticks(triggerBody()?['Modified'])))",
+                              "item/Fecha_Evento": "@convertTimeZone(triggerBody()?['Modified'],'UTC','SA Western Standard Time','yyyy-MM-dd HH:mm')",
+                              "item/Fecha_Creacion": "@convertTimeZone(triggerBody()?['Created'],'UTC','SA Western Standard Time','yyyy-MM-dd HH:mm')",
+                              "item/Duracion_Minutos": "@div(float(sub(ticks(triggerBody()?['Modified']),ticks(triggerBody()?['Created']))),600000000)",
+                              "item/ID_SharePoint": "@triggerBody()?['ID']",
+                              "item/No_Caja": "@triggerBody()?['No_Caja']",
+                              "item/No_Documento": "@triggerBody()?['Title']",
+                              "item/Orden": "@triggerBody()?['Orden']",
+                              "item/RNC": "@triggerBody()?['RNC']",
+                              "item/Razon_Social": "@triggerBody()?['Razon_Social']",
+                              "item/Area_Procedencia": "@triggerBody()?['Area_Procedencia']",
+                              "item/Tipo_Documento": "@triggerBody()?['Tipo_Documento']",
+                              "item/Prioridad": "@triggerBody()?['Prioridad/Value']",
+                              "item/Estado": "@triggerBody()?['Estado/Value']",
+                              "item/Usuario_Email": "@triggerBody()?['Editor/Email']",
+                              "item/Usuario_Nombre": "@triggerBody()?['Editor/DisplayName']",
+                              "item/Tipo_Evento": "Documento no recibido"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "AddRowV2"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        },
+                        "Notificar_fallo_al_actualizar_cantidad_por_No_recibido": {
+                          "runAfter": {
+                            "Actualizar_una_fila": [
+                              "TimedOut",
+                              "Failed"
+                            ]
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "poster": "User",
+                              "location": "Channel",
+                              "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                              "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                              "body/messageBody": "<p class=\"editor-paragraph\">ERROR AL ACTUALIZAR DOCUMENTO NO RECIBIDO<br><br>Caja: @{triggerBody()?['No_Caja']}<br>Número del documento: @{triggerBody()?['Title']}<br>Orden: @{triggerBody()?['Orden']}<br>Cantidad vigente calculada: @{outputs('No_recibido_-_Calcular_cantidad_vigente')}<br>Marcado por: @{triggerBody()?['Editor/DisplayName']}<br><br>Se localizó la fila “Caja recibida”, pero no fue posible actualizar Cantidad_Documentos.<br><br>El documento permanece marcado como “No recibido” en Preparación. Se requiere revisión técnica inmediata.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                              "connectionName": "shared_teams",
+                              "operationId": "PostMessageToConversation"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        },
+                        "No_recibido_-_Obtener_documentos_de_Digitalización": {
+                          "runAfter": {
+                            "Registrar_documento_no_recibido_en_Excel": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                              "table": "da7c1e85-52c4-4c25-829c-8ba4e5885cfd",
+                              "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),'''')"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                              "connectionName": "shared_sharepointonline",
+                              "operationId": "GetItems"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          },
+                          "runtimeConfiguration": {
+                            "paginationPolicy": {
+                              "minimumItemCount": 5000
+                            }
+                          }
+                        },
+                        "Condición_-_Caja_transferida_tras_documento_No_recibido": {
+                          "actions": {
+                            "Notificar_preparación_completada_tras_No_recibido": {
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "parameters": {
+                                  "poster": "User",
+                                  "location": "Channel",
+                                  "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                  "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                  "body/messageBody": "<p class=\"editor-paragraph\">PREPARACIÓN FÍSICA COMPLETADA<br><br>Caja: @{triggerBody()?['No_Caja']}<br>Número del documento: @{triggerBody()?['Title']}<br>Orden: @{triggerBody()?['Orden']}</p><p class=\"editor-paragraph\">Área de procedencia: @{triggerBody()?['Area_Procedencia']}<br>Documentos vigentes transferidos a Digitalización: @{outputs('No_recibido_-_Calcular_cantidad_vigente')}<br>Auxiliar de Archivo: @{triggerBody()?['Editor/DisplayName']}<br><br>Todos los documentos vigentes de la caja ya están disponibles para el proceso de digitalización.<br><br>Los documentos marcados como “No recibido” permanecen registrados en Preparación para fines de trazabilidad.</p>"
+                                },
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                  "connectionName": "shared_teams",
+                                  "operationId": "PostMessageToConversation"
+                                },
+                                "authentication": "@parameters('$authentication')"
+                              }
+                            }
+                          },
+                          "runAfter": {
+                            "No_recibido_-_Obtener_documentos_de_Digitalización": [
+                              "Succeeded"
+                            ]
+                          },
+                          "else": {
+                            "actions": {}
+                          },
+                          "expression": {
+                            "and": [
+                              {
+                                "greater": [
+                                  "@outputs('No_recibido_-_Calcular_cantidad_vigente')",
+                                  0
+                                ]
+                              },
+                              {
+                                "equals": [
+                                  "@outputs('No_recibido_-_Calcular_cantidad_vigente')",
+                                  "@length(outputs('No_recibido_-_Obtener_documentos_de_Digitalización')?['body/value'])"
+                                ]
+                              }
+                            ]
+                          },
+                          "type": "If"
+                        }
+                      },
+                      "runAfter": {
+                        "No_recibido_-_Filtrar_evento_Caja_recibida": [
+                          "Succeeded"
+                        ]
+                      },
+                      "else": {
+                        "actions": {
+                          "Notificar_error_al_actualizar_No_recibido_en_Excel": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "parameters": {
+                                "poster": "User",
+                                "location": "Channel",
+                                "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                "body/messageBody": "<p class=\"editor-paragraph\">ERROR AL PROCESAR DOCUMENTO NO RECIBIDO<br><br>Caja: @{triggerBody()?['No_Caja']}<br>Número de documento: @{triggerBody()?['Title']}<br>Orden: @{triggerBody()?['Orden']}<br>Marcado por: @{triggerBody()?['Editor/DisplayName']}<br><br>El documento fue marcado como “No recibido” en Preparación, pero no se localizó exactamente una fila “Caja recibida” en la base de datos interna.<br><br>No se actualizó Cantidad_Documentos y no se registró el evento operativo.<br><br>Se requiere revisión técnica inmediata.</p>"
+                              },
+                              "host": {
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                "connectionName": "shared_teams",
+                                "operationId": "PostMessageToConversation"
+                              },
+                              "authentication": "@parameters('$authentication')"
+                            }
+                          }
+                        }
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@length(body('No_recibido_-_Filtrar_evento_Caja_recibida'))",
+                              1
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    }
+                  }
+                },
+                "Pendiente": {
+                  "case": "Pendiente",
+                  "actions": {
+                    "Pendiente_-_Obtener_documentos_de_la_caja": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://dgii.sharepoint.com/sites/GestionDocumentalDGII",
+                          "table": "703c3ca4-e74b-40e1-8419-1fb69be74872",
+                          "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),'''')"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "connectionName": "shared_sharepointonline",
+                          "operationId": "GetItems"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      },
+                      "runtimeConfiguration": {
+                        "paginationPolicy": {
+                          "minimumItemCount": 5000
+                        }
+                      }
+                    },
+                    "Pendiente_-_Filtrar_documentos_vigentes": {
+                      "runAfter": {
+                        "Pendiente_-_Obtener_documentos_de_la_caja": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@outputs('Pendiente_-_Obtener_documentos_de_la_caja')?['body/value']",
+                        "where": "@not(equals(item()?['Estado']?['Value'],'No recibido'))"
+                      }
+                    },
+                    "Pendiente_-_Calcular_cantidad_vigente": {
+                      "runAfter": {
+                        "Pendiente_-_Filtrar_documentos_vigentes": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Compose",
+                      "inputs": "@length(body('Pendiente_-_Filtrar_documentos_vigentes'))"
+                    },
+                    "Pendiente_-_Buscar_caja_en_Excel": {
+                      "runAfter": {
+                        "Pendiente_-_Calcular_cantidad_vigente": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                        "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                          "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                          "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                          "$filter": "@concat('No_Caja eq ''',replace(triggerBody()?['No_Caja'],'''',''''''),'''')"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "GetItems"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Pendiente_-_Filtrar_evento_Caja_recibida": {
+                      "runAfter": {
+                        "Pendiente_-_Buscar_caja_en_Excel": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Query",
+                      "inputs": {
+                        "from": "@outputs('Pendiente_-_Buscar_caja_en_Excel')?['body/value']",
+                        "where": "@equals(item()?['Tipo_Evento'],'Caja recibida')"
+                      }
+                    },
+                    "Condición_-_Caja_recibida_localizada_para_Pendiente": {
+                      "actions": {
+                        "Pendiente_-_Actualizar_cantidad_vigente_en_Excel": {
+                          "metadata": {
+                            "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO": "/Datos de UDAD.xlsx",
+                            "tableId": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}"
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                              "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFba9evj-sofcRrIkemVbVw-e",
+                              "file": "01PZOABV2YLP37AQJRENC2M4F6YXSFMQJO",
+                              "table": "{A9660D9E-535A-41D6-8FF8-9300CF0A468C}",
+                              "idColumn": "Evento_ID",
+                              "id": "@first(body('Pendiente_-_Filtrar_evento_Caja_recibida'))?['Evento_ID']",
+                              "item/Cantidad_Documentos": "@outputs('Pendiente_-_Calcular_cantidad_vigente')"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                              "connectionName": "shared_excelonlinebusiness",
+                              "operationId": "PatchItem"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        },
+                        "Notificar_documento_reintegrado_como_Pendiente": {
+                          "runAfter": {
+                            "Pendiente_-_Actualizar_cantidad_vigente_en_Excel": [
+                              "Succeeded"
+                            ]
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "poster": "User",
+                              "location": "Channel",
+                              "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                              "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                              "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">DOCUMENTO REINTEGRADO AL CONTEO VIGENTE</strong></b><br><br><b><strong class=\"editor-text-bold\">Caja:</strong></b> @{triggerBody()?['No_Caja']}<br><b><strong class=\"editor-text-bold\">Número de documento:</strong></b> @{triggerBody()?['Title']}<br><b><strong class=\"editor-text-bold\">Orden:</strong></b> @{triggerBody()?['Orden']}<br><b><strong class=\"editor-text-bold\">Cantidad vigente actualizada:</strong></b> @{outputs('Pendiente_-_Calcular_cantidad_vigente')}<br><b><strong class=\"editor-text-bold\">Modificado por:</strong></b> @{triggerBody()?['Editor/DisplayName']}<br><br>El documento fue cambiado a estado “Pendiente”. La cantidad vigente de la caja fue recalculada y sincronizada.<br><br>El documento todavía no ha sido transferido a Digitalización. Debe cambiarse a “Preparado” cuando finalice su preparación física.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                              "connectionName": "shared_teams",
+                              "operationId": "PostMessageToConversation"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        },
+                        "Notificar_fallo_al_actualizar_cantidad_por_documento_Pendiente": {
+                          "runAfter": {
+                            "Pendiente_-_Actualizar_cantidad_vigente_en_Excel": [
+                              "Failed",
+                              "TimedOut"
+                            ]
+                          },
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "poster": "User",
+                              "location": "Channel",
+                              "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                              "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                              "body/messageBody": "<p class=\"editor-paragraph\"><strong>ERROR AL ACTUALIZAR DOCUMENTO REINTEGRADO</strong><br><br><strong>Caja:</strong> @{triggerBody()?['No_Caja']}<br><strong>Número de documento:</strong> @{triggerBody()?['Title']}<br><strong>Orden:</strong> @{triggerBody()?['Orden']}<br><strong>Cantidad vigente calculada:</strong> @{outputs('Pendiente_-_Calcular_cantidad_vigente')}<br><strong>Modificado por:</strong> @{triggerBody()?['Editor/DisplayName']}<br><br>Se localizó la fila “Caja recibida”, pero no fue posible actualizar Cantidad_Documentos.<br><br>El documento permanece con estado “Pendiente” en Preparación. Se requiere revisión técnica inmediata.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                              "connectionName": "shared_teams",
+                              "operationId": "PostMessageToConversation"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Pendiente_-_Filtrar_evento_Caja_recibida": [
+                          "Succeeded"
+                        ]
+                      },
+                      "else": {
+                        "actions": {
+                          "Notificar_error_al_reintegrar_documento_Pendiente": {
+                            "type": "OpenApiConnection",
+                            "inputs": {
+                              "parameters": {
+                                "poster": "User",
+                                "location": "Channel",
+                                "body/recipient/groupId": "79d87419-38dc-4f32-b48a-6ee69cb7ce88",
+                                "body/recipient/channelId": "19:-FIOKwDdiUTkcGiKbQKDBddxH-leFY_ns1lBYpujKvQ1@thread.tacv2",
+                                "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ERROR AL REINTEGRAR DOCUMENTO AL CONTEO VIGENTE</strong></b><br><br><b><strong class=\"editor-text-bold\">Caja:</strong></b> @{triggerBody()?['No_Caja']}<br><b><strong class=\"editor-text-bold\">Número de documento:</strong></b> @{triggerBody()?['Title']}<br><b><strong class=\"editor-text-bold\">Orden:</strong></b> @{triggerBody()?['Orden']}<br><b><strong class=\"editor-text-bold\">Cantidad vigente calculada:</strong></b> @{outputs('Pendiente_-_Calcular_cantidad_vigente')}<br><br>El documento fue cambiado a “Pendiente”, pero no se localizó exactamente una fila “Caja recibida” en Excel.<br><br>No fue posible actualizar Cantidad Documentos en la base de datos. Se requiere revisión técnica inmediata.</p>"
+                              },
+                              "host": {
+                                "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                                "connectionName": "shared_teams",
+                                "operationId": "PostMessageToConversation"
+                              },
+                              "authentication": "@parameters('$authentication')"
+                            }
+                          }
+                        }
+                      },
+                      "expression": {
+                        "and": [
+                          {
+                            "equals": [
+                              "@length(body('Pendiente_-_Filtrar_evento_Caja_recibida'))",
+                              1
+                            ]
+                          }
+                        ]
+                      },
+                      "type": "If"
+                    }
+                  }
+                }
+              },
+              "default": {
+                "actions": {}
+              },
+              "expression": "@triggerBody()?['Estado/Value']",
+              "type": "Switch"
+            }
+          },
+          "runAfter": {
+            "Obtener_cambios_del_documento_en_Preparación": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@outputs('Obtener_cambios_del_documento_en_Preparación')?['body/ColumnHasChanged/Estado']",
+                  "@true"
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

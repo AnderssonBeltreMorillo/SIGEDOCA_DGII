@@ -1,0 +1,1176 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedsharepointonline_c92d6"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_office365": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedoffice365_a5059"
+        },
+        "api": {
+          "name": "shared_office365"
+        }
+      },
+      "shared_teams": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedteams_dc8f3"
+        },
+        "api": {
+          "name": "shared_teams"
+        }
+      },
+      "shared_excelonlinebusiness": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "sigedoca_sharedexcelonlinebusiness_9341a"
+        },
+        "api": {
+          "name": "shared_excelonlinebusiness"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "Cuando_se_crea_o_se_modifica_un_elemento": {
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "evaluatedRecurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/ArchivodeGestionLaFeria",
+              "table": "3bd8c838-d5b8-43a4-83e1-081e023893f8"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnUpdatedItems"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        }
+      },
+      "actions": {
+        "Obtener_cambios_para_un_elemento_o_archivo_(solo_propiedades)": {
+          "runAfter": {},
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://dgii.sharepoint.com/sites/ArchivodeGestionLaFeria",
+              "table": "3bd8c838-d5b8-43a4-83e1-081e023893f8",
+              "id": "@triggerBody()?['ID']",
+              "since": "@triggerBody()?['{TriggerWindowStartToken}']",
+              "includeDrafts": false,
+              "until": "@triggerBody()?['{TriggerWindowEndToken}']"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetItemChanges"
+            },
+            "authentication": "@parameters('$authentication')"
+          }
+        },
+        "Condición": {
+          "actions": {
+            "Modificador": {
+              "cases": {
+                "Case_Localización_Física": {
+                  "case": "Localización Física",
+                  "actions": {
+                    "Obtener_correos_electrónicos_(V3)_Localización_Física": {
+                      "metadata": {
+                        "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=": "Sent Items"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "folderPath": "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=",
+                          "to": "@triggerBody()?['Solicitante']",
+                          "fetchOnlyUnread": false,
+                          "searchQuery": "ALLF@{triggerBody()?['ID']}",
+                          "top": 1
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "connectionName": "shared_office365",
+                          "operationId": "GetEmailsV3"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each_1": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)_Localización_Física')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_(V3)": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@item()?['id']",
+                              "replyParameters/To": "@triggerBody()?['Solicitante']",
+                              "replyParameters/Cc": "@item()?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">Le informamos que se ha procedido con la búsqueda física de su expediente en los anaqueles correspondientes. Le solicitamos esperar la confirmación de disponibilidad por esta vía antes de presentarse al área de archivo.<br><br>Gestor Documental<br>Archivo de Gestión La Feria</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Obtener_correos_electrónicos_(V3)_Localización_Física": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Foreach"
+                    },
+                    "Mensaje_de_Localización_Física": {
+                      "runAfter": {
+                        "For_each_1": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:e6bb5fa3693a48f49c9f90662815e9bd@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ALLF</strong></b>@{triggerBody()?['ID']} esta siendo atendida por @{triggerBody()?['Editor/DisplayName']}, localizando el documento solicitado.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Agregar_fila_a_tabla_interacciones_la_feria_en_AC": {
+                      "runAfter": {
+                        "Mensaje_de_Localización_Física": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{98DB7551-8312-469B-A5DD-515DD0B63390}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{98DB7551-8312-469B-A5DD-515DD0B63390}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    }
+                  }
+                },
+                "Case_2_Envío_Automatizado": {
+                  "case": "Envío Automatizado",
+                  "actions": {
+                    "Obtener_correos_electrónicos_(V3)_Envío_Automatizado": {
+                      "metadata": {
+                        "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=": "Sent Items"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "folderPath": "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=",
+                          "to": "@triggerBody()?['Solicitante']",
+                          "fetchOnlyUnread": false,
+                          "searchQuery": "ALLF@{triggerBody()?['ID']}",
+                          "top": 1
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "connectionName": "shared_office365",
+                          "operationId": "GetEmailsV3"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)_Envío_Automatizado')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_(V3)_1": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@items('For_each')?['id']",
+                              "replyParameters/To": "@triggerBody()?['Solicitante']",
+                              "replyParameters/Cc": "@items('For_each')?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">Su documento ha sido localizado y validado exitosamente. Puede acceder al mismo a través del siguiente enlace:</p>\n\n<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin: 15px 0;\">\n  <tbody><tr>\n    <td style=\"border-radius: 4px; background: #0078d4; text-align: center;\">\n      <a href=\"@{triggerBody()?['EnlaceDocumentoSolicitado']}\" style=\"background: #0078d4; border: 12px solid #0078d4; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.1; text-decoration: none; padding: 0px 20px; color: #ffffff; display: block; border-radius: 4px; font-weight: bold;\">\n        Acceder al Documento Digital\n      </a>\n    </td>\n  </tr>\n</tbody></table>\n\n<p class=\"editor-paragraph\"><i><em class=\"editor-text-italic\">Nota: Recuerde que la disponibilidad del enlace es de 5 días laborables, si vence deberá realizar una solicitud del mismo nuevamente.</em></i></p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Obtener_correos_electrónicos_(V3)_Envío_Automatizado": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Foreach"
+                    },
+                    "Mensaje_de_Envío_Automatizado": {
+                      "runAfter": {
+                        "For_each": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:e6bb5fa3693a48f49c9f90662815e9bd@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ALLF</strong></b>@{triggerBody()?['ID']} ha sido solucionado por @{triggerBody()?['Editor/DisplayName']}, enviando el enlace al documento solicitado.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_1": {
+                      "runAfter": {
+                        "Mensaje_de_Envío_Automatizado": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{98DB7551-8312-469B-A5DD-515DD0B63390}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{98DB7551-8312-469B-A5DD-515DD0B63390}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Agregar_fila_a_tabla_solicitudes_la_feria_en_AC": {
+                      "runAfter": {
+                        "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_1": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{5126BC67-CFEE-4A0B-9B19-0F142AB3FCAD}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{5126BC67-CFEE-4A0B-9B19-0F142AB3FCAD}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    }
+                  }
+                },
+                "Case_3_Prestado": {
+                  "case": "Prestado",
+                  "actions": {
+                    "Obtener_correos_electrónicos_(V3)_Prestado": {
+                      "metadata": {
+                        "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=": "Sent Items"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "folderPath": "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=",
+                          "to": "@triggerBody()?['Solicitante']",
+                          "fetchOnlyUnread": false,
+                          "searchQuery": "ALLF@{triggerBody()?['ID']}",
+                          "top": 1
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "connectionName": "shared_office365",
+                          "operationId": "GetEmailsV3"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each_2": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)_Prestado')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_(V3)_2": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@item()?['id']",
+                              "replyParameters/To": "@triggerBody()?['Solicitante']",
+                              "replyParameters/Cc": "@item()?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">El expediente físico solicitado ha sido localizado y se encuentra preparado en el área de archivo. Puede pasar a retirarlo.</p><br><p class=\"editor-paragraph\">Por favor, recuerde que el documento debe ser retornado a los anaqueles del Archivo de Gestión La Feria una vez concluidas las gestiones correspondientes, para garantizar la integridad y el resguardo de la información institucional.</p><br>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Obtener_correos_electrónicos_(V3)_Prestado": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Foreach"
+                    },
+                    "Mensaje_de_prestado": {
+                      "runAfter": {
+                        "For_each_2": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:e6bb5fa3693a48f49c9f90662815e9bd@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ALLF</strong></b>@{triggerBody()?['ID']} el documento solicitado ha sido prestado por @{triggerBody()?['Editor/DisplayName']}.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_2": {
+                      "runAfter": {
+                        "Mensaje_de_prestado": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{98DB7551-8312-469B-A5DD-515DD0B63390}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{98DB7551-8312-469B-A5DD-515DD0B63390}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Agregar_fila_a_tabla_solicitudes_la_feria_en_AC_1": {
+                      "runAfter": {
+                        "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_2": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{5126BC67-CFEE-4A0B-9B19-0F142AB3FCAD}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{5126BC67-CFEE-4A0B-9B19-0F142AB3FCAD}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    }
+                  }
+                },
+                "Case_4_Devuelto": {
+                  "case": "Devuelto",
+                  "actions": {
+                    "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_3": {
+                      "runAfter": {
+                        "Mensaje_de_Devuelto": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{98DB7551-8312-469B-A5DD-515DD0B63390}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{98DB7551-8312-469B-A5DD-515DD0B63390}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Mensaje_de_Devuelto": {
+                      "runAfter": {
+                        "For_each_3": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:e6bb5fa3693a48f49c9f90662815e9bd@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ALLF</strong></b>@{triggerBody()?['ID']} el documento devuelto ha sido recibido por @{triggerBody()?['Editor/DisplayName']}.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Obtener_correos_electrónicos_(V3)_Devuelto": {
+                      "metadata": {
+                        "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=": "Sent Items"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "folderPath": "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=",
+                          "to": "@triggerBody()?['Solicitante']",
+                          "fetchOnlyUnread": false,
+                          "searchQuery": "ALLF@{triggerBody()?['ID']}",
+                          "top": 1
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "connectionName": "shared_office365",
+                          "operationId": "GetEmailsV3"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each_3": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)_Devuelto')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_(V3)_3": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@item()?['id']",
+                              "replyParameters/To": "@triggerBody()?['Solicitante']",
+                              "replyParameters/Cc": "@item()?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">Le confirmamos de manera oficial que el expediente que se encontraba en calidad de préstamo ha sido devuelto exitosamente.<br><br>El documento ya ha sido procesado, validado y reubicado de forma segura en la caja correspondiente del Archivo de Gestión La Feria.</p><br><p class=\"editor-paragraph\">Agradecemos su colaboración con las normativas de resguardo documental.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Obtener_correos_electrónicos_(V3)_Devuelto": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Foreach"
+                    }
+                  }
+                },
+                "Case_5_No_localizado": {
+                  "case": "No localizado",
+                  "actions": {
+                    "Mensaje_de_No_localizado": {
+                      "runAfter": {
+                        "For_each_4": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:e6bb5fa3693a48f49c9f90662815e9bd@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ALLF</strong></b>@{triggerBody()?['ID']} el documento no fue localizado en el Archivo de Gestión por @{triggerBody()?['Editor/DisplayName']}.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_4": {
+                      "runAfter": {
+                        "Mensaje_de_No_localizado": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{98DB7551-8312-469B-A5DD-515DD0B63390}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{98DB7551-8312-469B-A5DD-515DD0B63390}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Obtener_correos_electrónicos_(V3)_No_localizado": {
+                      "metadata": {
+                        "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=": "Sent Items"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "folderPath": "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=",
+                          "to": "@triggerBody()?['Solicitante']",
+                          "fetchOnlyUnread": false,
+                          "searchQuery": "ALLF@{triggerBody()?['ID']}",
+                          "top": 1
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "connectionName": "shared_office365",
+                          "operationId": "GetEmailsV3"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each_4": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)_No_localizado')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_(V3)_4": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@item()?['id']",
+                              "replyParameters/To": "@triggerBody()?['Solicitante']",
+                              "replyParameters/Cc": "@item()?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">Luego de realizar una búsqueda exhaustiva en nuestros anaqueles y bases de datos físicas, le informamos que el documento solicitado actualmente no se ha localizado en el Archivo de Gestión La Feria.</p><br><p class=\"editor-paragraph\">Este estatus puede deberse a un error en los datos de procedencia proporcionados o a que el expediente se encuentra en tránsito en otra área. Le sugerimos verificar los datos de la solicitud (RNC, número de caja o descripción) o contactarnos a la extensión 8630 para asistencia adicional.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Obtener_correos_electrónicos_(V3)_No_localizado": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Foreach"
+                    },
+                    "Agregar_fila_a_tabla_solicitudes_la_feria_en_AC_2": {
+                      "runAfter": {
+                        "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_4": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{5126BC67-CFEE-4A0B-9B19-0F142AB3FCAD}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{5126BC67-CFEE-4A0B-9B19-0F142AB3FCAD}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    }
+                  }
+                },
+                "Case_6_Eliminado": {
+                  "case": "Eliminado",
+                  "actions": {
+                    "Obtener_correos_electrónicos_(V3)_Eliminado": {
+                      "metadata": {
+                        "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=": "Sent Items"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "folderPath": "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=",
+                          "to": "@triggerBody()?['Solicitante']",
+                          "fetchOnlyUnread": false,
+                          "searchQuery": "ALLF@{triggerBody()?['ID']}",
+                          "top": 1
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "connectionName": "shared_office365",
+                          "operationId": "GetEmailsV3"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each_5": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)_Eliminado')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_(V3)_5": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@item()?['id']",
+                              "replyParameters/To": "@triggerBody()?['Solicitante']",
+                              "replyParameters/Cc": "@item()?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">Le notificamos que el documento requerido figura en nuestros registros institucionales con estatus de eliminado.</p><br><p class=\"editor-paragraph\">Este procedimiento se ha llevado a cabo en estricto cumplimiento con las normativas de retención, expurgo y disposición final de documentos de la institución, tras haber cumplido su ciclo de vida útil y legal establecido.</p><br><p class=\"editor-paragraph\"><i><em class=\"editor-text-italic\">Para mayor información sobre las actas de eliminación, puede comunicarse con el Archivo Central DGII.</em></i></p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Obtener_correos_electrónicos_(V3)_Eliminado": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Foreach"
+                    },
+                    "Mensaje_de_Eliminado": {
+                      "runAfter": {
+                        "For_each_5": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:e6bb5fa3693a48f49c9f90662815e9bd@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ALLF</strong></b>@{triggerBody()?['ID']} el documento fue eliminado, atención dada por @{triggerBody()?['Editor/DisplayName']}.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_4_1": {
+                      "runAfter": {
+                        "Mensaje_de_Eliminado": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{98DB7551-8312-469B-A5DD-515DD0B63390}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{98DB7551-8312-469B-A5DD-515DD0B63390}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Agregar_fila_a_tabla_solicitudes_la_feria_en_AC_3": {
+                      "runAfter": {
+                        "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_4_1": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{5126BC67-CFEE-4A0B-9B19-0F142AB3FCAD}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{5126BC67-CFEE-4A0B-9B19-0F142AB3FCAD}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    }
+                  }
+                },
+                "Case_7_Transferido_al_Archivo_Central": {
+                  "case": "Transferido al Archivo Central",
+                  "actions": {
+                    "Obtener_correos_electrónicos_(V3)_Transferido_al_Archivo_Central": {
+                      "metadata": {
+                        "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=": "Sent Items"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "folderPath": "Id::AAMkADI1NWM0ZmZkLTdkMTUtNDI2Mi1iYTI2LTk0YzJiYzlmZTdkYwAuAAAAAABtM7HjYYWFS7-uEirtdxDHAQBmerdE1rWKTJsghYAk_6xjAAAAAAEJAAA=",
+                          "to": "@triggerBody()?['Solicitante']",
+                          "fetchOnlyUnread": false,
+                          "searchQuery": "ALLF@{triggerBody()?['ID']}",
+                          "top": 1
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "connectionName": "shared_office365",
+                          "operationId": "GetEmailsV3"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "For_each_6": {
+                      "foreach": "@outputs('Obtener_correos_electrónicos_(V3)_Transferido_al_Archivo_Central')?['body/value']",
+                      "actions": {
+                        "Responder_al_correo_electrónico_(V3)_6": {
+                          "type": "OpenApiConnection",
+                          "inputs": {
+                            "parameters": {
+                              "messageId": "@item()?['id']",
+                              "replyParameters/To": "@triggerBody()?['Solicitante']",
+                              "replyParameters/Cc": "@item()?['ccRecipients']",
+                              "replyParameters/Importance": "Normal",
+                              "replyParameters/Body": "<p class=\"editor-paragraph\">Le informamos que el documento solicitado ya no se encuentra físicamente en el Archivo de Gestión La Feria, debido a que ha sido transferido al archivo central.</p><br><p class=\"editor-paragraph\">De acuerdo con las políticas de retención y ciclo de vida de los documentos, este expediente completó su periodo en el archivo de gestión y fue remitido para su custodia definitiva. Deberá canalizar cualquier solicitud de este documento directamente con el Archivo Central.</p>"
+                            },
+                            "host": {
+                              "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                              "connectionName": "shared_office365",
+                              "operationId": "ReplyToV3"
+                            },
+                            "authentication": "@parameters('$authentication')"
+                          }
+                        }
+                      },
+                      "runAfter": {
+                        "Obtener_correos_electrónicos_(V3)_Transferido_al_Archivo_Central": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "Foreach"
+                    },
+                    "Mensaje_de_Eliminado_1": {
+                      "runAfter": {
+                        "For_each_6": [
+                          "Succeeded"
+                        ]
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "poster": "User",
+                          "location": "Group chat",
+                          "body/recipient": "19:e6bb5fa3693a48f49c9f90662815e9bd@thread.v2",
+                          "body/messageBody": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">ALLF</strong></b>@{triggerBody()?['ID']} el documento se encuentra en el Archivo Central, atención dada por @{triggerBody()?['Editor/DisplayName']}.</p>"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_teams",
+                          "connectionName": "shared_teams",
+                          "operationId": "PostMessageToConversation"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_4_1_1": {
+                      "runAfter": {
+                        "Mensaje_de_Eliminado_1": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{98DB7551-8312-469B-A5DD-515DD0B63390}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{98DB7551-8312-469B-A5DD-515DD0B63390}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    },
+                    "Agregar_fila_a_tabla_solicitudes_la_feria_en_AC_4": {
+                      "runAfter": {
+                        "Agregar_fila_a_tabla_interacciones_la_feria_en_AC_4_1_1": [
+                          "Succeeded"
+                        ]
+                      },
+                      "metadata": {
+                        "01PZOABV74QI5225HWENCL3FMRMJP7TLE5": "/Estadística de las solicitudes.xlsx",
+                        "tableId": "{5126BC67-CFEE-4A0B-9B19-0F142AB3FCAD}"
+                      },
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "source": "sites/dgii.sharepoint.com,9fb29c9a-92fe-4b1d-a300-d5fd5d0e678b,223e575d-6efe-4be0-abb4-b357de0915b6",
+                          "drive": "b!mpyyn_6SHUujANX9XQ5ni11XPiL-buBLq7SzV94JFbao-XWWf3tIRa6WnDDAR-8p",
+                          "file": "01PZOABV74QI5225HWENCL3FMRMJP7TLE5",
+                          "table": "{5126BC67-CFEE-4A0B-9B19-0F142AB3FCAD}",
+                          "dateTimeFormat": "ISO 8601",
+                          "item/ID": "ALLFC@{triggerBody()?['ID']}",
+                          "item/Creado": "@triggerBody()?['Created']",
+                          "item/RNC ~1 Cédula": "@triggerBody()?['Title']",
+                          "item/Nombre o Razón Social": "@triggerBody()?['NombreoRaz_x00f3_nSocial']",
+                          "item/Tipo de Contribuyente": "@triggerBody()?['TipodeContribuyente']",
+                          "item/Asunto ~1 Trámite": "@triggerBody()?['Asunto_x002f_Tr_x00e1_mite0']",
+                          "item/Fecha del documento": "@triggerBody()?['FechadelDocumento']",
+                          "item/Fecha de recepción": "@triggerBody()?['FechadeRecepci_x00f3_n']",
+                          "item/Tipo de Solicitud": "@triggerBody()?['TipodeSolicitud/Value']",
+                          "item/Solicitante": "@triggerBody()?['Solicitante']",
+                          "item/Estado": "@triggerBody()?['Estado/Value']",
+                          "item/Condición": "@triggerBody()?['Condici_x00f3_n/Value']",
+                          "item/Modificado": "@triggerBody()?['Modified']",
+                          "item/Modificado por": "@triggerBody()?['Editor/DisplayName']"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_excelonlinebusiness",
+                          "connectionName": "shared_excelonlinebusiness",
+                          "operationId": "AddRowV2"
+                        },
+                        "authentication": "@parameters('$authentication')"
+                      }
+                    }
+                  }
+                }
+              },
+              "default": {
+                "actions": {}
+              },
+              "expression": "@triggerBody()?['Condici_x00f3_n/Value']",
+              "type": "Switch"
+            }
+          },
+          "runAfter": {
+            "Obtener_cambios_para_un_elemento_o_archivo_(solo_propiedades)": [
+              "Succeeded"
+            ]
+          },
+          "else": {
+            "actions": {}
+          },
+          "expression": {
+            "and": [
+              {
+                "equals": [
+                  "@outputs('Obtener_cambios_para_un_elemento_o_archivo_(solo_propiedades)')?['body/ColumnHasChanged/Condici_x00f3_n']",
+                  "@true"
+                ]
+              },
+              {
+                "equals": [
+                  "",
+                  ""
+                ]
+              }
+            ]
+          },
+          "type": "If"
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}
