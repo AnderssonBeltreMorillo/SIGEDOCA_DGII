@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/sp/v2/column-formatting.schema.json",
+  "elmType": "button",
+  "customRowAction": {
+    "action": "executeFlow",
+    "actionParams": "{\"id\":\"v1/Default-9871db45-5a09-4862-9f24-94a1120e5ed1/ca975483-91f1-4ad8-8988-defac7ea69b8\",\"headerText\":\"Corrección controlada de datos\",\"runFlowButtonText\":\"Aplicar corrección\"}"
+  },
+  "attributes": {
+    "title": "Corregir datos documentales"
+  },
+  "style": {
+    "border": "1px solid #005A35",
+    "border-radius": "4px",
+    "background-color": "#006B3F",
+    "color": "#FFFFFF",
+    "cursor": "pointer",
+    "padding": "6px 12px",
+    "display": "flex",
+    "align-items": "center",
+    "font-weight": "600"
+  },
+  "children": [
+    {
+      "elmType": "span",
+      "attributes": {
+        "iconName": "Edit"
+      },
+      "style": {
+        "color": "#FFFFFF",
+        "padding-right": "6px"
+      }
+    },
+    {
+      "elmType": "span",
+      "txtContent": "Corregir datos"
+    }
+  ]
+}
